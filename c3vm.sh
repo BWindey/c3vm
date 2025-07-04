@@ -93,3 +93,149 @@ function ensure_directories() {
 }
 
 ensure_directories
+
+function print_short_help() {
+	# TODO:
+	echo "TODO"
+}
+
+function print_long_help() {
+	# TODO:
+	echo "TODO"
+}
+
+# Parse subcommand and options
+verbose="false"
+subcommand=""
+install_version=""
+remove_version=""
+use_version=""
+
+list_filters=()
+
+install_from_source="false"
+install_from_commit=""
+install_from_branch=""
+install_debug="false"
+install_remote_url="https://github.com/c3lang/c3c"
+enable_after_install="true"
+
+function check_subcommand_already_in_use() {
+	if [[ "$subcommand" != "" ]]; then
+		echo "Cannot specify more then one subcommand!" >&2
+		echo "Subcommand '$subcommand' was already specified when you added '$1'" >&2
+		exit 2
+	fi
+}
+
+function check_flag_for_subcommand() {
+	flag="$1"
+	expected_subcommand="$2"
+	if [[ "$subcommand" == "" ]]; then
+		echo "Flag '${flag}' requires '${expected_subcommand}' to be in front of it." >&2
+		exit 4
+	fi
+	if [[ "$subcommand" != "$expected_subcommand" ]]; then
+		echo "Flag '${flag}' does not belong to subcommand '${subcommand}' but to '${expected_subcommand}'" >&2
+	fi
+}
+
+while [[ "$1" ]]; do case $1 in
+# Global flags
+	-V | --version )
+		echo "$version"
+		exit
+		;;
+	-v | --verbose )
+		verbose="true"
+		;;
+# Subcommands
+	list)
+		check_subcommand_already_in_use "list"
+		subcommand="list"
+		;;
+	install)
+		check_subcommand_already_in_use "install"
+		subcommand="install"
+		if [[ "$#" -gt 1 && "$2" =~ v?[0-9]+.* ]]; then
+			shift
+			install_version="$1"
+		fi
+		;;
+	remove)
+		check_subcommand_already_in_use "remove"
+		subcommand="remove"
+		if [[ "$#" -gt 1 && "$2" =~ v?[0-9]+.* ]]; then
+			shift
+			remove_version="$1"
+		else
+			echo "Expected version behind 'remove' subcommand." >&2
+			if [[ "$#" -gt 1 ]]; then
+				echo "Version '$2' is not a valid version." >&2
+			fi
+			exit 3
+		fi
+		;;
+	use)
+		check_subcommand_already_in_use "use"
+		subcommand="use"
+		if [[ "$#" -gt 1 && "$2" =~ v?[0-9]+.* ]]; then
+			shift
+			use_version="$1"
+		else
+			echo "Expected version behind 'use' subcommand." >&2
+			if [[ "$#" -gt 1 ]]; then
+				echo "Version '$2' is not a valid version." >&2
+			fi
+			exit 3
+		fi
+		;;
+
+# List flags
+	--installed | -i)
+		check_flag_for_subcommand "$1" "list"
+		list_filters+=( "installed" )
+		;;
+	--enabled | -e)
+		check_flag_for_subcommand "$1" "list"
+		list_filters+=( "enabled" )
+		;;
+	--all | -a)
+		check_flag_for_subcommand "$1" "list"
+		list_filters+=( "all" )
+		;;
+	--release)
+		check_flag_for_subcommand "$1" "list"
+		list_filters+=( "release" )
+		;;
+	--debug)
+		check_flag_for_subcommand "$1" "list"
+		list_filters+=( "debug" )
+		;;
+
+# Install flags
+	--link)
+		check_flag_for_subcommand "$1" "install"
+		if [[ "$#" -le 1 ]]; then
+			echo "Expected <url> behind --link" >&2
+		fi
+		shift
+		install_url="$1"
+		;;
+	--remote)
+		if [[ "$#" -le 1 ]]; then
+			echo "Expected <url> behind --remote" >&2
+		elif [[ ! "$2" =~ (^https?://.*)|(^git@.*)  ]]; then
+			echo "--remote did not get valid url '$2'" >&2
+			echo "The url should start with 'http(s)://' or with 'git@'" >&2
+		fi
+		shift
+		install_remote_url="$1"
+		;;
+
+	*)
+		echo "Unknown argument '$1'." >&2
+		print_short_help
+		;;
+esac; shift; done
+
