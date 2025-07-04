@@ -16,35 +16,36 @@
 #
 # 	Flags:
 # 	- Global:
-# 		--version               Print version of this script
+# 		--version, -V           Print version of this script
 # 		--verbose, -v           Verbose logging of all subcommands
+# 		--help, -hh             Print this long help
+# 		-h                      Print short help
 #
 # 	- List command:
 # 		--installed, -i         List installed compilers (default)
+# 		--enabled, -e           List only the single enabled compiler
 # 		--all, -a               List all available compilers (from Github)
 # 		--release               Filter on release version
 # 		--debug                 Filter on debug versions
 #
 # 	- Install command:
-# 		--link <link>           Install compiler from specified link directly
-# 		--edge                  Live on the edge, grab the latest commit and
-# 		                        compile from there.
-# 		--commit [<hash>]       Install from source with specified commit,
-# 		                        or latest if omitted
+# 		--from-source [<hash>]  Compile from source. Defaults to latest commit
+# 	                            on the default branch, but can be tweaked by
+# 	                            specifying the hash of the commit or with --branch
 # 		--branch <branch>       Specify branch for --edge or --commit
-# 		--debug                 Install the debug version
-# 		--remote <link>         Use a different git-remote,
+# 		--remote <url>          Use a different git-remote,
 # 		                        default https://github.com/c3lang/c3c
+# 		--debug                 Install the debug version
 # 		--dont-enable           Do not enable the new version (keep old one active)
 #
-# 	- Remove:
-# 		--interactive, -i       Prompt before removing a version
+# 	- Remove command:
+# 		--interactive, -I       Prompt before removing a version
 # 		--no-regex, -F          Interpret <version> as fixed-string instead of
 # 		                        regex pattern
 # 		--inactive              Remove all installed compilers except for the
 # 		                        currently enabled compiler
 #
-# 	- Use:
+# 	- Use command:
 # 		--install               Install the version first if it wasn't already
 #                               (behind this flag you can add the "install" flags)
 # 		--session               Set an environment variable to use the specified
