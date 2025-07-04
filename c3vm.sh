@@ -69,3 +69,27 @@
 #		tweaking some bash variable below this explanation. Or just straight up
 #		tweak the source code.
 
+
+version="0.7.3" # Following the c3c release cycle a bit. Seems fun.
+
+data_home="${XDG_DATA_HOME:-$HOME/.local/share}/c3vm"
+cache_home="${XDG_CACHE_HOME:-$HOME/.cache}/c3vm"
+bin_home="$HOME/.local/bin/"
+
+function ensure_directories() {
+	for directory in "$data_home" "$cache_home" "$bin_home"; do
+		if ! [[ -e "$directory" && -d "$directory" ]]; then
+			echo "$directory does not exist to store compilers in."
+			echo -n "Create directory? [y/n] "
+			read -r ans
+			if [[ "$ans" == y ]]; then
+				mkdir -p "$directory"
+			else
+				echo "Cannot continue without ${directory}, quitting..."
+				exit 1
+			fi
+		fi
+	done
+}
+
+ensure_directories
