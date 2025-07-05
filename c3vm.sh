@@ -147,16 +147,28 @@ use_version=""
 
 list_filters=()
 
+install_version="latest"
 install_from_source="false"
 install_from_commit=""
 install_from_branch=""
-install_debug="false"
 install_remote_url="https://github.com/c3lang/c3c"
+install_debug="false"
 enable_after_install="true"
+
+remove_version=""
+remove_interactive="false"
+remove_regex_match="true"
+remove_inactive="false"
+
+use_version=""
+use_install="false"
+use_session="false"
+use_compiler_args=()
+
 
 function check_subcommand_already_in_use() {
 	if [[ "$subcommand" != "" ]]; then
-		echo "Cannot specify more then one subcommand!" >&2
+		echo "Cannot specify more than one subcommand!" >&2
 		echo "Subcommand '$subcommand' was already specified when you added '$1'" >&2
 		exit "$EXIT_MULTIPLE_SUBCOMMANDS"
 	fi
@@ -190,8 +202,21 @@ while [[ "$1" ]]; do case $1 in
 		exit "$EXIT_OK"
 		;;
 	-v | --verbose )
+		if [[ "$quiet" == "true" ]]; then
+			echo "--quiet was already set before ${1}." >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
 		verbose="true"
 		;;
+	-h)
+		print_short_help
+		exit "$EXIT_OK"
+		;;
+	--help | -hh)
+		print_long_help
+		exit "$EXIT_OK"
+		;;
+
 # Subcommands
 	list)
 		check_subcommand_already_in_use "list"
@@ -252,33 +277,124 @@ while [[ "$1" ]]; do case $1 in
 		list_filters+=( "release" )
 		;;
 	--debug)
-		check_flag_for_subcommand "$1" "list"
-		list_filters+=( "debug" )
+		case "$subcommand" in
+			"")
+				echo "Flag '--debug' requires 'list' or 'install' subcommand to be in front of it." >&2
+				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
+				;;
+			list)
+				list_filters+=( "debug" )
+				;;
+			install)
+				install_debug="true"
+				;;
+			*)
+				echo "Flag '--debug' is not supported for '${subcommand}' subcommand."
+				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
+				;;
+		esac
 		;;
 
 # Install flags
-	--link)
+	--from-source)
+		check_flag_for_subcommand "$1" "install"
+		install_from_source="true"
+		if [[ "$#" -gt 1 && "$2" =~ ^[a-z0-9]*$ ]]; then
+			shift
+			install_from_commit="$1"
+		fi
+		;;
+	--branch)
 		check_flag_for_subcommand "$1" "install"
 		if [[ "$#" -le 1 ]]; then
-			echo "Expected <url> behind --link" >&2
+			echo "Expected argument <branch> after --branch" >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		install_url="$1"
+		install_from_branch="$1"
 		;;
 	--remote)
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <url> behind --remote" >&2
-		elif [[ ! "$2" =~ (^https?://.*)|(^git@.*)  ]]; then
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		elif [[ ! "$2" =~ ^(https?://|git@).*  ]]; then
 			echo "--remote did not get valid url '$2'" >&2
 			echo "The url should start with 'http(s)://' or with 'git@'" >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
 		install_remote_url="$1"
 		;;
+	--dont-enable)
+		enable_after_install="false"
+		;;
 
+# Remove flags
+	--interactive | -I)
+		check_flag_for_subcommand "$1" "remove"
+		remove_interactive="true"
+		;;
+	--no-regex | -F)
+		check_flag_for_subcommand "$1" "remove"
+		remove_regex_match="false"
+		;;
+	--inactive)
+		check_flag_for_subcommand "$1" "remove"
+		remove_inactive="true"
+		;;
+
+# Use flags
+	--install)
+		check_flag_for_subcommand "$1" "use"
+		use_install="true"
+		;;
+	--session)
+		check_flag_for_subcommand "$1" "use"
+		use_session="true"
+		;;
+	--)
+		check_flag_for_subcommand "$1" "use"
+		shift
+		while [[ "$1" ]]; do
+			use_compiler_args+=( "$1" )
+			shift
+		done
+		;;
 	*)
-		echo "Unknown argument '$1'." >&2
-		print_short_help
+		case "$subcommand" in
+			list)
+				echo "Received unknown argument for 'list': '${1}'" >&2
+				exit "$EXIT_UNKNOWN_ARG"
+				;;
+			install)
+				if [[ "$install_version" != "latest" && "$1" != "latest" ]]; then
+					echo "Version was already set to '${install_version}', cannot reset it to '${1}'" >&2
+					exit "$EXIT_CONTRADICTING_FLAGS"
+				fi
+				check_valid_version "$1"
+				install_version="$1"
+				;;
+			remove)
+				if [[ "$remove_version" != "" ]]; then
+					echo "Version was already set to '${remove_version}', cannot reset it to '${1}'" >&2
+					exit "$EXIT_CONTRADICTING_FLAGS"
+				fi
+				check_valid_version "$1"
+				remove_version="$1"
+				;;
+			use)
+				if [[ "$use_version" != "" ]]; then
+					echo "Version was already set to '${use_version}', cannot reset it to '${1}'" >&2
+					exit "$EXIT_CONTRADICTING_FLAGS"
+				fi
+				check_valid_version "$1"
+				use_version="$1"
+				;;
+			*)
+				echo "Received unknown argument: '${1}'"
+				exit "$EXIT_UNKNOWN_ARG"
+				;;
+		esac
 		;;
 esac; shift; done
 
