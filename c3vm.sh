@@ -12,7 +12,10 @@ It can grab releases from Github or compile from scratch
  Commands:
     - list                  List (installed) compilers
     - install [<version>]   Install specified version, or latest when
-                            version is omitted
+                            version is omitted. Will also enable the installed
+							version (unless --dont-enable).
+							When the version is already installed, just
+							enable that version.
     - remove <version>      Remove specified version (regex match with grep)
     - use <version> [-- <args>]
                             Use the specified version for a single command
@@ -29,7 +32,7 @@ It can grab releases from Github or compile from scratch
  - List command:
     --installed, -i         List installed compilers (default)
     --enabled, -e           List only the single enabled compiler
-    --all, -a               List all available compilers (from Github)
+    --available, -a               List all available compilers (from Github)
     --release               Filter on release version
     --debug                 Filter on debug versions
 
@@ -38,8 +41,8 @@ It can grab releases from Github or compile from scratch
                             on the default branch, but can be tweaked by
                             specifying the hash of the commit or with --branch
     --branch <branch>       Specify branch for --edge or --commit
-    --remote <url>          Use a different git-remote,
-                            default https://github.com/c3lang/c3c
+    --remote <url>          Use a different git-remote, default c3lang/c3c.
+                            Only supports Github remotes.
     --debug                 Install the debug version
     --dont-enable           Do not enable the new version (keep old one active)
 
@@ -66,8 +69,7 @@ It can grab releases from Github or compile from scratch
     $XDG_CACHE_HOME defaults to $HOME/.cache/.
 
     Versions are according to the tag on github. You can request a debug-
-    build either with '--debug' or by adding '-debug' to the version,
-    f.e. '0.7.3-debug'.
+    build with '--debug'.
 
     The current enabled version is symlinked (`ln -s`) to $HOME/.local/bin.
 
@@ -79,15 +81,15 @@ It can grab releases from Github or compile from scratch
  Exit codes:
     0 - OK
     1 - Required directories missing and not able to create them
-    2 - Multiple subcommands found
-    3 - Flag misses (correct) argument
-    4 - Flag is used without its subcommand
-    5 - Flag is used with wrong subcommand
-    6 - Contradicting flags
-    7 - Unknow argument/flag
-    8 - Version did not match version-regex
+	2 - Required tools are missing
+    3 - Multiple subcommands found
+    4 - Flag misses (correct) argument
+    5 - Flag is used without its subcommand
+    6 - Flag is used with wrong subcommand
+    7 - Contradicting flags
+    8 - Unknow argument/flag
+    9 - Version did not match version-regex
 LONG_HELP
-	exit
 }
 
 function print_short_help() {
@@ -101,25 +103,26 @@ SHORT_HELP
 # Tweakable variables
 VERSION="0.7.3" # Following the c3c release cycle a bit. Seems fun.
 
-data_home="${XDG_DATA_HOME:-$HOME/.local/share}/c3vm"
-cache_home="${XDG_CACHE_HOME:-$HOME/.cache}/c3vm"
-bin_home="$HOME/.local/bin/"
+dir_compilers="${XDG_DATA_HOME:-$HOME/.local/share}/c3vm"
+dir_git_repos="${XDG_CACHE_HOME:-$HOME/.cache}/c3vm"
+dir_bin_link="$HOME/.local/bin/"
 
 
 # All possible exit codes, has to match the help-string!
 EXIT_OK=0
 EXIT_MISSING_DIRS=1
-EXIT_MULTIPLE_SUBCOMMANDS=2
-EXIT_FLAG_ARGS_ISSUE=3
-EXIT_FLAG_WITHOUT_SUBCOMMAND=4
-EXIT_FLAG_WITH_WRONG_SUBCOMMAND=5
-EXIT_CONTRADICTING_FLAGS=6
-EXIT_UNKNOWN_ARG=7
-EXIT_INVALID_VERSION=8
+EXIT_MISSING_TOOLS=2
+EXIT_MULTIPLE_SUBCOMMANDS=3
+EXIT_FLAG_ARGS_ISSUE=4
+EXIT_FLAG_WITHOUT_SUBCOMMAND=5
+EXIT_FLAG_WITH_WRONG_SUBCOMMAND=6
+EXIT_CONTRADICTING_FLAGS=7
+EXIT_UNKNOWN_ARG=8
+EXIT_INVALID_VERSION=9
 
 
 function ensure_directories() {
-	for directory in "$data_home" "$cache_home" "$bin_home"; do
+	for directory in "$dir_compilers" "$dir_git_repos" "$dir_bin_link"; do
 		if ! [[ -e "$directory" && -d "$directory" ]]; then
 			echo "$directory does not exist to store compilers in."
 			echo -n "Create directory? [y/n] "
@@ -134,7 +137,24 @@ function ensure_directories() {
 	done
 }
 
+function ensure_tools() {
+	missing_something="false"
+
+	needed_commands=( "curl" "wget" "git" "jq" "ln" )
+	for command in "${needed_commands[@]}"; do
+		if ! command -v "$command" >/dev/null; then
+			echo "Missing '${command}'"
+			missing_something="true"
+		fi
+	done
+
+	if [[ "$missing_something" != "false" ]]; then
+		exit "$EXIT_MISSING_TOOLS"
+	fi
+}
+
 ensure_directories
+ensure_tools
 
 
 # Default values that can be changed with subcommands and flags
@@ -150,7 +170,7 @@ list_filters=()
 install_version="latest"
 install_from_source="false"
 install_from_commit=""
-install_from_branch=""
+install_from_branch="master"
 install_remote_url="https://github.com/c3lang/c3c"
 install_debug="false"
 enable_after_install="true"
@@ -194,6 +214,11 @@ function check_valid_version() {
 		exit "$EXIT_INVALID_VERSION"
 	fi
 }
+
+if ! [[ "$1" ]]; then
+	print_short_help
+	exit "$EXIT_UNKNOWN_ARG"
+fi
 
 while [[ "$1" ]]; do case $1 in
 # Global flags
@@ -268,9 +293,9 @@ while [[ "$1" ]]; do case $1 in
 		check_flag_for_subcommand "$1" "list"
 		list_filters+=( "enabled" )
 		;;
-	--all | -a)
+	--available | -a)
 		check_flag_for_subcommand "$1" "list"
-		list_filters+=( "all" )
+		list_filters+=( "available" )
 		;;
 	--release)
 		check_flag_for_subcommand "$1" "list"
@@ -398,3 +423,106 @@ while [[ "$1" ]]; do case $1 in
 		;;
 esac; shift; done
 
+
+# Here follow the implementations of each subcommand.
+# They assume that argument-parsing happened correctly, and will use the
+# global variables.
+
+declare -i _amount_filters_printed=0
+
+function start_list() {
+	filter_name="$1"
+	amount_filters="${#list_filters[@]}"
+
+	if [[ "$amount_filters" -gt 1 ]]; then
+		echo -e "\e[1m${filter_name}:\e[0m"
+	fi
+	_amount_filters_printed+=1
+}
+
+function end_list() {
+	amount_filters="${#list_filters[@]}"
+
+	if (( _amount_filters_printed < amount_filters )); then
+		echo ""
+	fi
+}
+
+function c3vm_list_installed() {
+	installed_compilers=$(ls -1 "$dir_compilers")
+
+	start_list "Installed"
+
+	if [[ "$installed_compilers" == "" ]]; then
+		echo "No versions installed yet. Install one with 'c3vm install'."
+	else
+		echo "$installed_compilers"
+	fi
+
+	end_list
+}
+
+function c3vm_list_enabled() {
+	enabled_compiler=$(which c3c 2>/dev/null)
+
+	start_list "Enabled"
+
+	if [[ "$enabled_compiler" == "" ]]; then
+		echo "No compiler was enabled yet. Enable one with 'c3vm install'."
+	else
+		echo "$enabled_compiler"
+	fi
+
+	end_list
+}
+
+function c3vm_list_available() {
+	available_versions=$(
+		curl -s "https://api.github.com/repos/c3lang/c3c/releases" \
+		| jq -r '.[].tag_name' \
+		| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$"
+	)
+
+	start_list "All"
+
+	echo "$available_versions"
+
+	end_list
+}
+
+function c3vm_list() {
+	if [[ "${#list_filters}" == 0 ]]; then
+		list_filters+=( "installed" )
+	fi
+
+	for filter in "${list_filters[@]}"; do
+		case "$filter" in
+			installed)
+				c3vm_list_installed
+				;;
+			enabled)
+				c3vm_list_enabled
+				;;
+			available)
+				c3vm_list_available
+				;;
+			# TODO:
+		esac
+	done
+}
+
+
+function c3vm_install() {
+	true;
+}
+
+case "$subcommand" in
+	list)
+		c3vm_list
+		;;
+	install)
+		c3vm_install
+		;;
+	*)
+		echo "'$subcommand' not implemented yet"
+esac
