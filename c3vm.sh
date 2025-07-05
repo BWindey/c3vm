@@ -105,6 +105,19 @@ data_home="${XDG_DATA_HOME:-$HOME/.local/share}/c3vm"
 cache_home="${XDG_CACHE_HOME:-$HOME/.cache}/c3vm"
 bin_home="$HOME/.local/bin/"
 
+
+# All possible exit codes, has to match the help-string!
+EXIT_OK=0
+EXIT_MISSING_DIRS=1
+EXIT_MULTIPLE_SUBCOMMANDS=2
+EXIT_FLAG_ARGS_ISSUE=3
+EXIT_FLAG_WITHOUT_SUBCOMMAND=4
+EXIT_FLAG_WITH_WRONG_SUBCOMMAND=5
+EXIT_CONTRADICTING_FLAGS=6
+EXIT_UNKNOWN_ARG=7
+EXIT_INVALID_VERSION=8
+
+
 function ensure_directories() {
 	for directory in "$data_home" "$cache_home" "$bin_home"; do
 		if ! [[ -e "$directory" && -d "$directory" ]]; then
@@ -112,10 +125,10 @@ function ensure_directories() {
 			echo -n "Create directory? [y/n] "
 			read -r ans
 			if [[ "$ans" == y ]]; then
-				mkdir -p "$directory"
+				mkdir -p "$directory" || exit "$EXIT_MISSING_DIRS"
 			else
 				echo "Cannot continue without ${directory}, quitting..."
-				exit 1
+				exit "$EXIT_MISSING_DIRS"
 			fi
 		fi
 	done
@@ -123,18 +136,10 @@ function ensure_directories() {
 
 ensure_directories
 
-function print_short_help() {
-	# TODO:
-	echo "TODO"
-}
 
-function print_long_help() {
-	# TODO:
-	echo "TODO"
-}
-
-# Parse subcommand and options
+# Default values that can be changed with subcommands and flags
 verbose="false"
+quiet="false"
 subcommand=""
 install_version=""
 remove_version=""
@@ -153,7 +158,7 @@ function check_subcommand_already_in_use() {
 	if [[ "$subcommand" != "" ]]; then
 		echo "Cannot specify more then one subcommand!" >&2
 		echo "Subcommand '$subcommand' was already specified when you added '$1'" >&2
-		exit 2
+		exit "$EXIT_MULTIPLE_SUBCOMMANDS"
 	fi
 }
 
@@ -162,18 +167,27 @@ function check_flag_for_subcommand() {
 	expected_subcommand="$2"
 	if [[ "$subcommand" == "" ]]; then
 		echo "Flag '${flag}' requires '${expected_subcommand}' to be in front of it." >&2
-		exit 4
+		exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
 	fi
 	if [[ "$subcommand" != "$expected_subcommand" ]]; then
 		echo "Flag '${flag}' does not belong to subcommand '${subcommand}' but to '${expected_subcommand}'" >&2
+		exit "$EXIT_FLAG_WITH_WRONG_SUBCOMMAND"
+	fi
+}
+
+function check_valid_version() {
+	if ! [[ "$1" =~ v?[0-9]\.[0-9]+\.[0-9]+(-debug)? ]]; then
+		echo "Tried to use '$1' as version, but does not match the version-regex." >&2
+		echo "A valid version is of the form (v)?<num>.<num>.<num>(-debug)?" >&2
+		exit "$EXIT_INVALID_VERSION"
 	fi
 }
 
 while [[ "$1" ]]; do case $1 in
 # Global flags
 	-V | --version )
-		echo "$version"
-		exit
+		echo "$VERSION"
+		exit "$EXIT_OK"
 		;;
 	-v | --verbose )
 		verbose="true"
@@ -202,7 +216,7 @@ while [[ "$1" ]]; do case $1 in
 			if [[ "$#" -gt 1 ]]; then
 				echo "Version '$2' is not a valid version." >&2
 			fi
-			exit 3
+			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		;;
 	use)
@@ -216,7 +230,7 @@ while [[ "$1" ]]; do case $1 in
 			if [[ "$#" -gt 1 ]]; then
 				echo "Version '$2' is not a valid version." >&2
 			fi
-			exit 3
+			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		;;
 
