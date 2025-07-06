@@ -163,8 +163,29 @@ function ensure_tools() {
 	fi
 }
 
+# OS filled in by check_platform, used to download correct release from GitHub
+operating_system=""
+
+function check_platform() {
+	local is_working_os="false"
+
+	if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+		is_working_os="true"      # Linux
+		operating_system="linux"
+	elif [[ "$OSTYPE" == "darwin"* ]]; then
+		is_working_os="true"      # MacOS
+		operating_system="macos"
+	fi
+
+	if [[ "$is_working_os" != "true" ]]; then
+		echo "Operating system '$OSTYPE' is not supported"
+		exit "$EXIT_UNSUPPORTED_OS"
+	fi
+}
+
 ensure_directories
 ensure_tools
+check_platform
 
 
 # Default values that can be changed with subcommands and flags
