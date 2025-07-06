@@ -202,7 +202,7 @@ install_version="latest"
 install_from_source="false"
 install_from_commit=""
 install_from_branch="master"
-install_remote_url="https://github.com/c3lang/c3c"
+install_remote="c3lang/c3c"
 install_debug="false"
 enable_after_install="true"
 
@@ -361,7 +361,7 @@ while [[ "$1" ]]; do case $1 in
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		install_remote_url="$1"
+		install_remote="$1"
 		;;
 	--debug)
 		check_flag_for_subcommand "$1" "install"
@@ -534,9 +534,69 @@ function c3vm_list() {
 	done
 }
 
+function download_known_release() {
+	local version=""
+
+	if [[ "$install_version" == "latest" ]]; then
+		get_available_versions
+		version="$(sed -n '2P' <<< "$available_versions")"
+	else
+		version="$install_version"
+	fi
+
+	local output_dir="${dir_compilers}/${version}"
+
+	local asset_name=""
+	local extension=""
+	case "$operating_system" in
+		linux)
+			extension="tar.gz"
+			;;
+		macos)
+			extension="zip"
+			;;
+	esac
+
+
+	if [[ "$install_debug" == "true" ]]; then
+		asset_name="c3-${operating_system}-debug.${extension}"
+		output_dir="${output_dir}-debug"
+	else
+		asset_name="c3-${operating_system}.${extension}"
+	fi
+
+	# Purge output_dir if it already exists
+	if [[ -e "$output_dir" ]]; then
+		echo "'$output_dir' already exists but would be overwritten."
+		echo -n "Proceed and overwrite? [y/n] "
+		read -r ans
+		if [[ "$ans" == y ]]; then
+			if ! rm -r "$output_dir"; then
+				echo "Failed to remove '$output_dir' before recreating." >&2
+				exit "$EXIT_INSTALL_NO_DIR"
+			fi
+		else
+			echo "Aborting install."
+			exit "$EXIT_INSTALL_NO_DIR"
+		fi
+	fi
+
+	# Create output_dir
+	if ! mkdir -p "$output_dir"; then
+		echo "Failed to create '$output_dir'." >&2
+		exit "$EXIT_INSTALL_NO_DIR"
+	fi
+
+	local url="https://github.com/${install_remote}/releases/download/${version}/${asset_name}"
+
+	echo "Downloading ${url}"
+	curl -L -o "${output_dir}/${asset_name}" "$url"
+}
 
 function c3vm_install() {
-	true;
+	# TODO:
+	# check which settings and do the right action
+	download_known_release
 }
 
 case "$subcommand" in
