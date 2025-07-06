@@ -33,8 +33,6 @@ It can grab releases from Github or compile from scratch
     --installed, -i         List installed compilers (default)
     --enabled, -e           List only the single enabled compiler
     --available, -a               List all available compilers (from Github)
-    --release               Filter on release version
-    --debug                 Filter on debug versions
 
  - Install command:
     --from-source [<hash>]  Compile from source. Defaults to latest commit
@@ -301,24 +299,6 @@ while [[ "$1" ]]; do case $1 in
 		check_flag_for_subcommand "$1" "list"
 		list_filters+=( "release" )
 		;;
-	--debug)
-		case "$subcommand" in
-			"")
-				echo "Flag '--debug' requires 'list' or 'install' subcommand to be in front of it." >&2
-				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
-				;;
-			list)
-				list_filters+=( "debug" )
-				;;
-			install)
-				install_debug="true"
-				;;
-			*)
-				echo "Flag '--debug' is not supported for '${subcommand}' subcommand."
-				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
-				;;
-		esac
-		;;
 
 # Install flags
 	--from-source)
@@ -349,6 +329,10 @@ while [[ "$1" ]]; do case $1 in
 		fi
 		shift
 		install_remote_url="$1"
+		;;
+	--debug)
+		check_flag_for_subcommand "$1" "install"
+		install_debug="true"
 		;;
 	--dont-enable)
 		enable_after_install="false"
@@ -435,7 +419,7 @@ function start_list() {
 	amount_filters="${#list_filters[@]}"
 
 	if [[ "$amount_filters" -gt 1 ]]; then
-		echo -e "\e[1m${filter_name}:\e[0m"
+		echo -e "\e[1;4m${filter_name}:\e[0m"
 	fi
 	_amount_filters_printed+=1
 }
@@ -463,12 +447,14 @@ function c3vm_list_installed() {
 }
 
 function c3vm_list_enabled() {
-	enabled_compiler=$(which c3c 2>/dev/null)
+	enabled_compiler=$(readlink "$(which c3c 2>/dev/null)")
 
 	start_list "Enabled"
 
 	if [[ "$enabled_compiler" == "" ]]; then
 		echo "No compiler was enabled yet. Enable one with 'c3vm install'."
+	elif ! [[ "$enabled_compiler" == "$dir_compilers"* ]]; then
+		echo "Currently enabled compiler is not managed by c3vm!"
 	else
 		echo "$enabled_compiler"
 	fi
@@ -476,14 +462,19 @@ function c3vm_list_enabled() {
 	end_list
 }
 
-function c3vm_list_available() {
-	available_versions=$(
+available_versions=""
+function get_available_versions() {
+	available_versions="$(
 		curl -s "https://api.github.com/repos/c3lang/c3c/releases" \
 		| jq -r '.[].tag_name' \
-		| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$"
-	)
+		| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$" \
+	)"
+}
 
-	start_list "All"
+function c3vm_list_available() {
+	get_available_versions
+
+	start_list "Available"
 
 	echo "$available_versions"
 
@@ -506,7 +497,6 @@ function c3vm_list() {
 			available)
 				c3vm_list_available
 				;;
-			# TODO:
 		esac
 	done
 }
