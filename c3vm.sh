@@ -35,12 +35,15 @@ It can grab releases from Github or compile from scratch
     --available, -a               List all available compilers (from Github)
 
  - Install command:
+    --version <version>     Specify a specific version. When left out "latest"
+	                        is assumed (!= "latest-preview").
     --from-source [<hash>]  Compile from source. Defaults to latest commit
                             on the default branch, but can be tweaked by
                             specifying the hash of the commit or with --branch
     --branch <branch>       Specify branch for --edge or --commit
     --remote <url>          Use a different git-remote, default c3lang/c3c.
-                            Only supports Github remotes.
+                            Only supports Github remotes with same tags/releases
+							as c3lang/c3c.
     --debug                 Install the debug version
     --dont-enable           Do not enable the new version (keep old one active)
 
@@ -78,15 +81,20 @@ It can grab releases from Github or compile from scratch
 
  Exit codes:
     0 - OK
+ - Starting checks:
     1 - Required directories missing and not able to create them
 	2 - Required tools are missing
-    3 - Multiple subcommands found
-    4 - Flag misses (correct) argument
-    5 - Flag is used without its subcommand
-    6 - Flag is used with wrong subcommand
-    7 - Contradicting flags
-    8 - Unknow argument/flag
-    9 - Version did not match version-regex
+	3 - Unsupported OS (only GNU/Linux and MacOS supported)
+ - Argument parsing failures:
+    10 - Multiple subcommands found
+    11 - Flag misses (correct) argument
+    12 - Flag is used without its subcommand
+    13 - Flag is used with wrong subcommand
+    14 - Contradicting flags
+    15 - Unknow argument/flag
+    16 - Version did not match version-regex
+ - Install failures
+    20 - Directory not available to save into
 LONG_HELP
 }
 
@@ -110,13 +118,17 @@ dir_bin_link="$HOME/.local/bin/"
 EXIT_OK=0
 EXIT_MISSING_DIRS=1
 EXIT_MISSING_TOOLS=2
-EXIT_MULTIPLE_SUBCOMMANDS=3
-EXIT_FLAG_ARGS_ISSUE=4
-EXIT_FLAG_WITHOUT_SUBCOMMAND=5
-EXIT_FLAG_WITH_WRONG_SUBCOMMAND=6
-EXIT_CONTRADICTING_FLAGS=7
-EXIT_UNKNOWN_ARG=8
-EXIT_INVALID_VERSION=9
+EXIT_UNSUPPORTED_OS=3
+
+EXIT_MULTIPLE_SUBCOMMANDS=10
+EXIT_FLAG_ARGS_ISSUE=11
+EXIT_FLAG_WITHOUT_SUBCOMMAND=12
+EXIT_FLAG_WITH_WRONG_SUBCOMMAND=13
+EXIT_CONTRADICTING_FLAGS=14
+EXIT_UNKNOWN_ARG=15
+EXIT_INVALID_VERSION=16
+
+EXIT_INSTALL_NO_DIR=20
 
 
 function ensure_directories() {
@@ -136,9 +148,9 @@ function ensure_directories() {
 }
 
 function ensure_tools() {
-	missing_something="false"
+	local missing_something="false"
 
-	needed_commands=( "curl" "wget" "git" "jq" "ln" )
+	local needed_commands=( "curl" "wget" "git" "jq" "ln" "readlink" )
 	for command in "${needed_commands[@]}"; do
 		if ! command -v "$command" >/dev/null; then
 			echo "Missing '${command}'"
