@@ -286,6 +286,13 @@ while [[ "$1" ]]; do case $1 in
 		fi
 		verbose="true"
 		;;
+	-q | --quiet)
+		if [[ "$verbose" == "true" ]]; then
+			echo "--verbose was already set before ${1}." >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
+		quiet="true"
+		;;
 	-h)
 		print_short_help
 		exit "$EXIT_OK"
