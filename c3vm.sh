@@ -13,9 +13,9 @@ It can grab releases from Github or compile from scratch
     - list                  List (installed) compilers
     - install [<version>]   Install specified version, or latest when
                             version is omitted. Will also enable the installed
-							version (unless --dont-enable).
-							When the version is already installed, just
-							enable that version.
+                            version (unless --dont-enable).
+                            When the version is already installed, just
+                            enable that version.
     - remove <version>      Remove specified version (regex match with grep)
     - use <version> [-- <args>]
                             Use the specified version for a single command
@@ -32,20 +32,21 @@ It can grab releases from Github or compile from scratch
  - List command:
     --installed, -i         List installed compilers (default)
     --enabled, -e           List only the single enabled compiler
-    --available, -a               List all available compilers (from Github)
+    --available, -a         List all available compilers (from Github)
+    --remote <remote>       See --remote for 'install' below
 
  - Install command:
-    --version <version>     Specify a specific version. When left out "latest"
-	                        is assumed (!= "latest-preview").
     --from-source [<hash>]  Compile from source. Defaults to latest commit
                             on the default branch, but can be tweaked by
                             specifying the hash of the commit or with --branch
-    --branch <branch>       Specify branch for --edge or --commit
-    --remote <url>          Use a different git-remote, default c3lang/c3c.
+    --branch <branch>       Specify branch or tag for --from-source
+    --remote <remote>       Use a different git-remote, default c3lang/c3c.
                             Only supports Github remotes with same tags/releases
-							as c3lang/c3c.
+                            as c3lang/c3c.
     --debug                 Install the debug version
     --dont-enable           Do not enable the new version (keep old one active)
+    --keep-archive          Keep the downloaded archive after extracting.
+                            Not used when compiling from source.
 
  - Remove command:
     --interactive, -I       Prompt before removing a version
@@ -83,8 +84,8 @@ It can grab releases from Github or compile from scratch
     0 - OK
  - Starting checks:
     1 - Required directories missing and not able to create them
-	2 - Required tools are missing
-	3 - Unsupported OS (only GNU/Linux and MacOS supported)
+    2 - Required tools are missing
+    3 - Unsupported OS (only GNU/Linux and MacOS supported)
  - Argument parsing failures:
     10 - Multiple subcommands found
     11 - Flag misses (correct) argument
@@ -95,6 +96,8 @@ It can grab releases from Github or compile from scratch
     16 - Version did not match version-regex
  - Install failures
     20 - Directory not available to save into
+    21 - Current c3c installation is not a symlink
+    22 - Current c3c installation is not managed by c3vm
 LONG_HELP
 }
 
