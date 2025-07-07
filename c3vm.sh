@@ -152,22 +152,6 @@ function ensure_directories() {
 	done
 }
 
-function ensure_tools() {
-	local missing_something="false"
-
-	local needed_commands=( "curl" "wget" "git" "jq" "ln" "readlink" )
-	for command in "${needed_commands[@]}"; do
-		if ! command -v "$command" >/dev/null; then
-			echo "Missing '${command}'"
-			missing_something="true"
-		fi
-	done
-
-	if [[ "$missing_something" != "false" ]]; then
-		exit "$EXIT_MISSING_TOOLS"
-	fi
-}
-
 # OS filled in by check_platform, used to download correct release from GitHub
 operating_system=""
 
@@ -188,9 +172,37 @@ function check_platform() {
 	fi
 }
 
+# Depends on '$operating_system' being set
+function ensure_tools() {
+	local missing_something="false"
+
+	local needed_commands=(
+		"curl" "git" "jq" "ln" "readlink" "unlink" "find" "realpath"
+	)
+	case "$operating_system" in
+		linux)
+			needed_commands+=( "tar" )
+			;;
+		macos)
+			needed_commands+=( "unzip" )
+			;;
+	esac
+
+	for command in "${needed_commands[@]}"; do
+		if ! command -v "$command" >/dev/null; then
+			echo "Missing '${command}'"
+			missing_something="true"
+		fi
+	done
+
+	if [[ "$missing_something" != "false" ]]; then
+		exit "$EXIT_MISSING_TOOLS"
+	fi
+}
+
 ensure_directories
-ensure_tools
 check_platform
+ensure_tools
 
 
 # Default values that can be changed with subcommands and flags
