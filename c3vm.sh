@@ -498,6 +498,18 @@ case "$subcommand" in
 		;;
 esac
 
+function log_info() {
+	if [[ "$quiet" != "true" ]]; then
+		echo "$1"
+	fi
+}
+
+function log_verbose() {
+	if [[ "$verbose" == "true" ]]; then
+		echo "$1"
+	fi
+}
+
 # Here follow the implementations of each subcommand.
 # They assume that argument-parsing happened correctly, and will use the
 # global variables.
@@ -554,6 +566,7 @@ function c3vm_list_enabled() {
 
 available_versions=""
 function get_available_versions() {
+	log_verbose "Getting the available version from GitHub..."
 	available_versions="$(
 		curl -s "https://api.github.com/repos/${remote}/releases" \
 		| jq -r '.[].tag_name' \
