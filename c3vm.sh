@@ -16,6 +16,9 @@ It can grab releases from Github or compile from scratch
                             version (unless --dont-enable).
                             When the version is already installed, just
                             enable that version.
+    - link-local <path>     Link a local C3 compiler directory into c3vm.
+                            The local compiler must use a regular CMake
+                            build-system.
     - remove <version>      Remove specified version (regex match with grep)
     - use <version> [-- <args>]
                             Use the specified version for a single command
@@ -224,6 +227,8 @@ install_from_branch="master"
 install_debug="false"
 install_keep_archive="false"
 enable_after_install="true"
+
+link_local_path=""
 
 remove_version=""
 remove_interactive="false"
@@ -447,6 +452,12 @@ while [[ "$1" ]]; do case $1 in
 					install_version="v$1"
 				fi
 				;;
+			link-local)
+				if [[ "$link_local_path" != "" ]]; then
+					echo "Link-local path was already set to '${link_local_path}', cannot reset it to '${1}'" >&2
+					exit "$EXIT_CONTRADICTING_FLAGS"
+				fi
+				link_local_path="$1"
 				;;
 			remove)
 				if [[ "$remove_version" != "" ]]; then
