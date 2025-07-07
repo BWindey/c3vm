@@ -129,6 +129,8 @@ EXIT_UNKNOWN_ARG=15
 EXIT_INVALID_VERSION=16
 
 EXIT_INSTALL_NO_DIR=20
+EXIT_INSTALL_CURRENT_NO_SYMLINK=21
+EXIT_INSTALL_NOT_C3VM_OWNED=22
 
 
 function ensure_directories() {
@@ -198,12 +200,14 @@ use_version=""
 
 list_filters=()
 
+remote="c3lang/c3c"
+
 install_version="latest"
 install_from_source="false"
 install_from_commit=""
 install_from_branch="master"
-install_remote="c3lang/c3c"
 install_debug="false"
+install_keep_archive="false"
 enable_after_install="true"
 
 remove_version=""
@@ -239,9 +243,12 @@ function check_flag_for_subcommand() {
 }
 
 function check_valid_version() {
-	if ! [[ "$1" =~ v?[0-9]\.[0-9]+\.[0-9]+(-debug)? ]]; then
+	if [[ "$1" =~ ^latest(-prerelease)?$ ]]; then
+		return 0
+	fi
+	if ! [[ "$1" =~ ^v?[0-9]\.[0-9]+\.[0-9]+(-debug)?$ ]]; then
 		echo "Tried to use '$1' as version, but does not match the version-regex." >&2
-		echo "A valid version is of the form (v)?<num>.<num>.<num>(-debug)?" >&2
+		echo "A valid version is of the form (v)?<num>.<num>.<num>(-debug)? or latest(-prerelease)?" >&2
 		exit "$EXIT_INVALID_VERSION"
 	fi
 }
@@ -281,38 +288,18 @@ while [[ "$1" ]]; do case $1 in
 	install)
 		check_subcommand_already_in_use "install"
 		subcommand="install"
-		if [[ "$#" -gt 1 && "$2" =~ v?[0-9]+.* ]]; then
-			shift
-			install_version="$1"
-		fi
+		;;
+	link-local)
+		check_subcommand_already_in_use "link-local"
+		subcommand="link-local"
 		;;
 	remove)
 		check_subcommand_already_in_use "remove"
 		subcommand="remove"
-		if [[ "$#" -gt 1 && "$2" =~ v?[0-9]+.* ]]; then
-			shift
-			remove_version="$1"
-		else
-			echo "Expected version behind 'remove' subcommand." >&2
-			if [[ "$#" -gt 1 ]]; then
-				echo "Version '$2' is not a valid version." >&2
-			fi
-			exit "$EXIT_FLAG_ARGS_ISSUE"
-		fi
 		;;
 	use)
 		check_subcommand_already_in_use "use"
 		subcommand="use"
-		if [[ "$#" -gt 1 && "$2" =~ v?[0-9]+.* ]]; then
-			shift
-			use_version="$1"
-		else
-			echo "Expected version behind 'use' subcommand." >&2
-			if [[ "$#" -gt 1 ]]; then
-				echo "Version '$2' is not a valid version." >&2
-			fi
-			exit "$EXIT_FLAG_ARGS_ISSUE"
-		fi
 		;;
 
 # List flags
@@ -352,23 +339,41 @@ while [[ "$1" ]]; do case $1 in
 		install_from_branch="$1"
 		;;
 	--remote)
+		case "$subcommand" in
+			list | install)
+				# OK
+				;;
+			"")
+				echo "Flag '${flag}' requires '${expected_subcommand}' to be in front of it." >&2
+				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
+				;;
+			*)
+				echo "Flag '${flag}' does not belong to subcommand '${subcommand}' but to 'list' or 'install'" >&2
+				exit "$EXIT_FLAG_WITH_WRONG_SUBCOMMAND"
+				;;
+		esac
 		if [[ "$#" -le 1 ]]; then
-			echo "Expected <url> behind --remote" >&2
+			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
-		elif [[ ! "$2" =~ ^(https?://|git@).*  ]]; then
-			echo "--remote did not get valid url '$2'" >&2
-			echo "The url should start with 'http(s)://' or with 'git@'" >&2
+		elif [[ ! "$2" =~ ^[^/]+/[^/]+$  ]]; then
+			echo "--remote did not get valid remote '$2'" >&2
+			echo "The remote should be of the form <owner>/<project>" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		install_remote="$1"
+		remote="$1"
 		;;
 	--debug)
 		check_flag_for_subcommand "$1" "install"
 		install_debug="true"
 		;;
 	--dont-enable)
+		check_flag_for_subcommand "$1" "install"
 		enable_after_install="false"
+		;;
+	--keep-archive)
+		check_flag_for_subcommand "$1" "install"
+		install_keep_archive="true"
 		;;
 
 # Remove flags
@@ -414,14 +419,19 @@ while [[ "$1" ]]; do case $1 in
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
 				check_valid_version "$1"
-				install_version="$1"
+				if [[ "$1" == "v"* || "$1" =~ latest(-prerelease)? ]]; then
+					install_version="$1"
+				else
+					install_version="v$1"
+				fi
+				;;
 				;;
 			remove)
 				if [[ "$remove_version" != "" ]]; then
 					echo "Version was already set to '${remove_version}', cannot reset it to '${1}'" >&2
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
-				check_valid_version "$1"
+				# No validity-check because this can be a regex
 				remove_version="$1"
 				;;
 			use)
@@ -430,7 +440,11 @@ while [[ "$1" ]]; do case $1 in
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
 				check_valid_version "$1"
-				use_version="$1"
+				if [[ "$1" == "v"* || "$1" =~ latest(-prerelease)? ]]; then
+					use_version="$1"
+				else
+					use_version="v$1"
+				fi
 				;;
 			*)
 				echo "Received unknown argument: '${1}'"
@@ -440,6 +454,27 @@ while [[ "$1" ]]; do case $1 in
 		;;
 esac; shift; done
 
+
+# Check that 'remove' and 'use' have gotten a version.
+# We do that here instead of in the 'case remove)' because
+# 'c3vm remove --interactive v0.6*' is valid
+case "$subcommand" in
+	remove)
+		if [[ "$remove_version" == "" ]]; then
+			echo "Expected version behind 'remove' subcommand." >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		fi
+		if [[ "$remove_regex_match" == "false" ]]; then
+			check_valid_version "$remove_version"
+		fi
+		;;
+	use)
+		if [[ "$use_version" == "" ]]; then
+			echo "Expected version behind 'use' subcommand." >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		fi
+		;;
+esac
 
 # Here follow the implementations of each subcommand.
 # They assume that argument-parsing happened correctly, and will use the
@@ -498,7 +533,7 @@ function c3vm_list_enabled() {
 available_versions=""
 function get_available_versions() {
 	available_versions="$(
-		curl -s "https://api.github.com/repos/c3lang/c3c/releases" \
+		curl -s "https://api.github.com/repos/${remote}/releases" \
 		| jq -r '.[].tag_name' \
 		| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$" \
 	)"
@@ -534,15 +569,91 @@ function c3vm_list() {
 	done
 }
 
-function download_known_release() {
-	local version=""
-
+function determine_download_release() {
 	if [[ "$install_version" == "latest" ]]; then
 		get_available_versions
-		version="$(sed -n '2P' <<< "$available_versions")"
+		sed -n '2P' <<< "$available_versions"
 	else
-		version="$install_version"
+		echo "$install_version"
 	fi
+}
+
+# This function creates the necessary directories if needed, exits the script
+# when needed and returns 0 when everything can continue or 1 when download
+# can be aborted because the requested version is already installed
+function ensure_download_directory() {
+	local output_dir="$1"
+
+	# If the directory does not exist, create it
+	if [[ ! -e "$output_dir" ]]; then
+		if ! mkdir -p "$output_dir"; then
+			echo "Failed to create '$output_dir'." >&2
+			exit "$EXIT_INSTALL_NO_DIR"
+		fi
+		return 0
+	fi
+
+	# If it exists, check if it contains a c3c executable
+	# The '| grep -q .' trick ensures we get a return value to compare
+	if find "$output_dir" -type f -executable -name "c3c" | grep -q .; then
+		# c3c already installed in this directory
+		echo "Requested version already installed in ${output_dir}."
+		return 1
+	else
+		echo "'$output_dir' already exists but does not contain a 'c3c' binary."
+		echo -n "Continue and overwrite directory? [y/n] "
+		read -r ans
+		if [[ "$ans" == y ]]; then
+			if ! rm -r "${output_dir}"; then
+				echo "Failed to remove '$output_dir' before recreating." >&2
+				exit "$EXIT_INSTALL_NO_DIR"
+			fi
+			if ! mkdir -p "$output_dir"; then
+				echo "Failed to create '$output_dir'." >&2
+				exit "$EXIT_INSTALL_NO_DIR"
+			fi
+		else
+			echo "Aborting install." >&2
+			exit "$EXIT_INSTALL_NO_DIR"
+		fi
+	fi
+}
+
+function enable_compiler_symlink() {
+	local output_dir="$1"
+	local symlink_location="$HOME/.local/bin/c3c"
+
+	echo "Linking (installed) executable to ${symlink_location}..."
+
+	if [[ -e "${symlink_location}" ]]; then
+		if ! [[ -h "$symlink_location" ]]; then
+			echo "'${symlink_location}' is not a symlink, aborting installation" >&2
+			exit "$EXIT_INSTALL_CURRENT_NO_SYMLINK"
+		elif [[ "$(readlink "$symlink_location")" != "$dir_compilers"* ]]; then
+			echo "Symlink is not managed by 'c3vm' (points to '$(readlink "$symlink_location")')"
+			echo -n "Unlink and link c3vm-installed version? [y/n] "
+			read -r ans
+			if [[ "$ans" == y ]]; then
+				unlink "$symlink_location"
+			else
+				echo "Aborting install." >&2
+				exit "$EXIT_INSTALL_NOT_C3VM_OWNED"
+			fi
+		else
+			unlink "$symlink_location"
+		fi
+	fi
+
+	# Not hardcoding path because macos zips are of the form 'macos/c3c'
+	# while the linux tar.gz is of the form 'c3/c3c'.
+	local exe_path
+	exe_path="$(find "${output_dir}" -type f -executable -name "c3c" -exec realpath '{}' \;)"
+	ln -s "${exe_path}" "$HOME/.local/bin/c3c"
+}
+
+function download_known_release() {
+	local version
+	version="$(determine_download_release)"
 
 	local output_dir="${dir_compilers}/${version}"
 
@@ -557,7 +668,6 @@ function download_known_release() {
 			;;
 	esac
 
-
 	if [[ "$install_debug" == "true" ]]; then
 		asset_name="c3-${operating_system}-debug.${extension}"
 		output_dir="${output_dir}-debug"
@@ -565,38 +675,61 @@ function download_known_release() {
 		asset_name="c3-${operating_system}.${extension}"
 	fi
 
-	# Purge output_dir if it already exists
-	if [[ -e "$output_dir" ]]; then
-		echo "'$output_dir' already exists but would be overwritten."
-		echo -n "Proceed and overwrite? [y/n] "
-		read -r ans
-		if [[ "$ans" == y ]]; then
-			if ! rm -r "$output_dir"; then
-				echo "Failed to remove '$output_dir' before recreating." >&2
-				exit "$EXIT_INSTALL_NO_DIR"
-			fi
-		else
-			echo "Aborting install."
-			exit "$EXIT_INSTALL_NO_DIR"
+	if ! ensure_download_directory "$output_dir"; then
+		# Directory already contains c3c → just enable if requested
+		if [[ "$enable_after_install" == "true" ]]; then
+			enable_compiler_symlink "$output_dir"
 		fi
+		exit "$EXIT_OK"
 	fi
 
-	# Create output_dir
-	if ! mkdir -p "$output_dir"; then
-		echo "Failed to create '$output_dir'." >&2
-		exit "$EXIT_INSTALL_NO_DIR"
+	local url="https://github.com/${remote}/releases/download/${version}/${asset_name}"
+
+	echo "Downloading ${url}..."
+	curl --progress-bar -L -o "${output_dir}/${asset_name}" "$url"
+
+	# Check for too small file or HTML error-page
+	file_size=$(wc -c < "${output_dir}/${asset_name}")
+	if [[ "$file_size" -lt 1000000 ]] ||
+		grep -qE '<html|Not Found' "${output_dir}/${asset_name}"
+	then
+		echo "Download failed or invalid archive received." >&2
+		rm "${output_dir}/${asset_name}"
+		exit "$EXIT_DOWNLOAD_FAILED"
 	fi
 
-	local url="https://github.com/${install_remote}/releases/download/${version}/${asset_name}"
+	echo "Extracting ${asset_name}..."
+	# TODO: handle verbose/quiet options
+	case "$extension" in
+		tar.gz)
+			tar --extract --directory="${output_dir}" --file="${output_dir}/${asset_name}"
+			;;
+		zip)
+			unzip "${output_dir}/${asset_name}" -d "${output_dir}"
+	esac
 
-	echo "Downloading ${url}"
-	curl -L -o "${output_dir}/${asset_name}" "$url"
+	if [[ "$install_keep_archive" != "true" ]]; then
+		echo "Removing archive..."
+		rm "${output_dir}/${asset_name}"
+	fi
+
+	enable_compiler_symlink "$output_dir"
+}
+
+function ensure_git_directory() {
+	local git_dir="${}"
+}
+
+function c3vm_install_from_source() {
+	true
 }
 
 function c3vm_install() {
-	# TODO:
-	# check which settings and do the right action
-	download_known_release
+	if [[ "$install_from_source" == "true" ]]; then
+		c3vm_install_from_source
+	else
+		download_known_release
+	fi
 }
 
 case "$subcommand" in
