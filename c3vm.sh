@@ -36,9 +36,7 @@ It can grab releases from Github or compile from scratch.
 
  - List command:
     --installed, -i         List installed compilers (default)
-    --enabled, -e           List only the single enabled compiler
     --available, -a         List all available compilers (from Github)
-    --remote <remote>       See --remote for 'install' below
 
  - Install command:
     --debug                 Install the debug version
@@ -51,9 +49,11 @@ It can grab releases from Github or compile from scratch.
                             be tweaked with other flags.
     --checkout <ref>        Specify branch, tag or commit for --from-source as
                             you would pass it to git.
-    --remote <remote>       Use a different git-remote for --from-source,
-                            default c3lang/c3c. Only supports Github remotes
-                            with same tags/releases as c3lang/c3c.
+    --remote <remote>       Use a different remote for fetching prebuilt
+                            binaries from (still from Github) or from fetching
+                            sourcecode, defaults to c3lang/c3c.
+                            Only supports Github remotes with tags/releases
+                            following versions vx.y.z and 'latest-prerelease'.
 
  - Remove command:
     --interactive, -I       Prompt before removing a version
@@ -63,8 +63,6 @@ It can grab releases from Github or compile from scratch.
                             currently enabled compiler
 
  - Use command:
-    --install               Install the version first if it wasn't already
-                            (behind this flag you can add the "install" flags)
     --session               Output the exports to switch current compiler
                             version in your shell session.
                             Should be used as `eval "$(c3vm use --session <version>)"`.
@@ -166,10 +164,7 @@ SHORT_HELP
 }
 
 # Tweakable variables
-VERSION="0.7.3" # Following the c3c release cycle a bit. Seems fun.
-
 dir_compilers="${XDG_DATA_HOME:-$HOME/.local/share}/c3vm"
-dir_git_repos="${XDG_CACHE_HOME:-$HOME/.cache}/c3vm"
 dir_bin_link="$HOME/.local/bin/"
 
 
@@ -190,10 +185,11 @@ EXIT_INVALID_VERSION=16
 EXIT_INSTALL_NO_DIR=20
 EXIT_INSTALL_CURRENT_NO_SYMLINK=21
 EXIT_INSTALL_NOT_C3VM_OWNED=22
+EXIT_INSTALL_GIT_DIR=23
 
 
 function ensure_directories() {
-	for directory in "$dir_compilers" "$dir_git_repos" "$dir_bin_link"; do
+	for directory in "$dir_compilers" "$dir_bin_link"; do
 		if ! [[ -e "$directory" && -d "$directory" ]]; then
 			echo "$directory does not exist to store compilers in."
 			echo -n "Create directory? [y/n] "
@@ -333,10 +329,6 @@ fi
 
 while [[ "$1" ]]; do case $1 in
 # Global flags
-	-V | --version )
-		echo "$VERSION"
-		exit "$EXIT_OK"
-		;;
 	-v | --verbose )
 		if [[ "$quiet" == "true" ]]; then
 			echo "--quiet was already set before ${1}." >&2
@@ -361,6 +353,10 @@ while [[ "$1" ]]; do case $1 in
 		;;
 
 # Subcommands
+	status)
+		check_subcommand_already_in_use "status"
+		subcommand="status"
+		;;
 	list)
 		check_subcommand_already_in_use "list"
 		subcommand="list"
@@ -369,9 +365,17 @@ while [[ "$1" ]]; do case $1 in
 		check_subcommand_already_in_use "install"
 		subcommand="install"
 		;;
-	link-local)
-		check_subcommand_already_in_use "link-local"
-		subcommand="link-local"
+	enable)
+		check_subcommand_already_in_use "enable"
+		subcommand="enable"
+		;;
+	add-local)
+		check_subcommand_already_in_use "add-local"
+		subcommand="add-local"
+		;;
+	update)
+		check_subcommand_already_in_use "update"
+		subcommand="update"
 		;;
 	remove)
 		check_subcommand_already_in_use "remove"
@@ -387,20 +391,25 @@ while [[ "$1" ]]; do case $1 in
 		check_flag_for_subcommand "$1" "list"
 		list_filters+=( "installed" )
 		;;
-	--enabled | -e)
-		check_flag_for_subcommand "$1" "list"
-		list_filters+=( "enabled" )
-		;;
 	--available | -a)
 		check_flag_for_subcommand "$1" "list"
 		list_filters+=( "available" )
 		;;
-	--release)
-		check_flag_for_subcommand "$1" "list"
-		list_filters+=( "release" )
-		;;
 
 # Install flags
+	--debug)
+		check_flag_for_subcommand "$1" "install"
+		install_debug="true"
+		;;
+	--dont-enable)
+		check_flag_for_subcommand "$1" "install"
+		enable_after_install="false"
+		;;
+	--keep-archive)
+		check_flag_for_subcommand "$1" "install"
+		install_keep_archive="true"
+		;;
+
 	--from-source)
 		check_flag_for_subcommand "$1" "install"
 		install_from_source="true"
@@ -419,19 +428,7 @@ while [[ "$1" ]]; do case $1 in
 		install_from_branch="$1"
 		;;
 	--remote)
-		case "$subcommand" in
-			list | install)
-				# OK
-				;;
-			"")
-				echo "Flag '${flag}' requires '${expected_subcommand}' to be in front of it." >&2
-				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
-				;;
-			*)
-				echo "Flag '${flag}' does not belong to subcommand '${subcommand}' but to 'list' or 'install'" >&2
-				exit "$EXIT_FLAG_WITH_WRONG_SUBCOMMAND"
-				;;
-		esac
+		check_flag_for_subcommand "$1" "install"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -442,18 +439,6 @@ while [[ "$1" ]]; do case $1 in
 		fi
 		shift
 		remote="$1"
-		;;
-	--debug)
-		check_flag_for_subcommand "$1" "install"
-		install_debug="true"
-		;;
-	--dont-enable)
-		check_flag_for_subcommand "$1" "install"
-		enable_after_install="false"
-		;;
-	--keep-archive)
-		check_flag_for_subcommand "$1" "install"
-		install_keep_archive="true"
 		;;
 
 # Remove flags
