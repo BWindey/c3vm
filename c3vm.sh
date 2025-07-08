@@ -2,23 +2,26 @@
 
 function print_long_help() {
 	cat << 'LONG_HELP'
-Welcome to my highly advanced c3c version manager.
+Welcome to a c3c version manager.
 This is a bash script that can install and manage versions of the c3c compiler.
-It can grab releases from Github or compile from scratch
+It can grab releases from Github or compile from scratch.
 
  Usage:
     c3vm [<command>] [<flags>] [<args>]
 
  Commands:
+    - status                Print currently enabled compiler info.
     - list                  List (installed) compilers
     - install [<version>]   Install specified version, or latest when
                             version is omitted. Will also enable the installed
                             version (unless --dont-enable).
-                            When the version is already installed, just
-                            enable that version.
-    - link-local <path>     Link a local C3 compiler directory into c3vm.
+    - enable <version>      Enable an already installed version.
+    - add-local <path> <alias>
+                            Link a local C3 compiler directory into c3vm.
                             The local compiler must use a regular CMake
-                            build-system.
+                            build-system. The alias will be the name of the
+                            symlink, and used for 'update'.
+    - update                Update the current active version.
     - remove <version>      Remove specified version (regex match with grep)
     - use <version> [-- <args>]
                             Use the specified version for a single command
@@ -26,8 +29,7 @@ It can grab releases from Github or compile from scratch
 
  Flags:
  - Global:
-    --version, -V           Print version of this script
-    --verbose, -v           Log all info
+    --verbose, -v           Log all info (default is just a little bit of info)
     --quiet, -q             Suppress all info (not errors)
     --help, -hh             Print this long help
     -h                      Print short help
@@ -39,17 +41,19 @@ It can grab releases from Github or compile from scratch
     --remote <remote>       See --remote for 'install' below
 
  - Install command:
-    --from-source [<hash>]  Compile from source. Defaults to latest commit
-                            on the default branch, but can be tweaked by
-                            specifying the hash of the commit or with --branch
-    --branch <branch>       Specify branch or tag for --from-source
-    --remote <remote>       Use a different git-remote, default c3lang/c3c.
-                            Only supports Github remotes with same tags/releases
-                            as c3lang/c3c.
     --debug                 Install the debug version
     --dont-enable           Do not enable the new version (keep old one active)
     --keep-archive          Keep the downloaded archive after extracting.
                             Not used when compiling from source.
+
+    --from-source           Compile from source. Defaults to latest commit
+                            on the default branch of remote c3lang/c3c but can
+                            be tweaked with other flags.
+    --checkout <ref>        Specify branch, tag or commit for --from-source as
+                            you would pass it to git.
+    --remote <remote>       Use a different git-remote for --from-source,
+                            default c3lang/c3c. Only supports Github remotes
+                            with same tags/releases as c3lang/c3c.
 
  - Remove command:
     --interactive, -I       Prompt before removing a version
@@ -66,21 +70,69 @@ It can grab releases from Github or compile from scratch
                             Should be used as `eval "$(c3vm use --session <version>)"`.
 
 
+ Examples:
+    # Install and enable latest stable release
+    c3vm install
+
+    # Install a specific version but do not enable it
+    c3vm install --dont-enable v0.6.8
+
+    # Install debug compiler from source from a fork
+    c3vm install --from-source --remote bwindey/c3c --debug
+
+    # Use a previous version for a single time
+    c3vm use v0.7.1 -- compile-run my_code.c3
+
+
  Additional info:
-    The compilers are stored under $XDG_DATA_HOME/c3vm/, where $XDG_DATA_HOME
-    defaults to $HOME/.local/share/.
-
-    Building from git will happen inside $XDG_CACHE_HOME/c3vm/, where
-    $XDG_CACHE_HOME defaults to $HOME/.cache/.
-
     Versions are according to the tag on github. You can request a debug-
     build with '--debug'.
 
     The current enabled version is symlinked (`ln -s`) to $HOME/.local/bin.
 
-    There are quite some other configurable things you can tweak by
-    tweaking some bash variable below this explanation. Or just straight up
-    tweak the source code.
+    The installed compilers are stored under $XDG_DATA_HOME/c3vm/, where
+    $XDG_DATA_HOME defaults to $HOME/.local/share/ if it isn't set.
+    Inside that directory they are stored like this:
+    $XDG_DATA_HOME/c3vm/
+    ├── git/
+    │   ├── local/
+    │   │   └── own_local -> /some/path/to/local/c3c/
+    │   └── remote/
+    │       ├── c3lang_c3c/
+    │       └── bwindey_c3c/
+    │           ├── other files like README.md, src/, ...
+    │           └── build/
+    │               ├── release/
+    │               ├── debug/
+    │               ├── dev_release/
+    │               ├── dev_debug/
+    │               ├── v0.7.2_release/
+    │               └── 2a4c6f3_release/
+    ├── prebuilt/
+    │   ├── releases/
+    │   │   ├── v0.7.1/
+    │   │   ├── v0.7.2/
+    │   │   └── v0.7.3/
+    │   └── prereleases/
+    │       ├── latest_prerelease_20250702_1/
+    │       └── ...
+
+    Git remotes are stored under 'git/remote/<user>_<repo>/'.
+    Builds (remote and local) are stored under 'build/<type>', where
+    <type> depends on branch, tag or commit, and ends with '_release' or '_debug'.
+    Builds on a branch can be updated when the branch updates.
+    Builds on tags or commits are fixed.
+
+
+ Planned/ideas:
+    A 'snapshot' subcommand for installing from-source that will store the
+    currently enabled compiler under an alias (probably git/snapshots/<alias>/)
+    that allows you to quickly snapshot the version, update and compare
+    behaviour.
+
+    Some kind of alias to create like 'c3c_debug' or whatever as available
+    executable. Not trivial as the script needs to know which aliasses
+    are from c3vm. Might not be implemented ever.
 
 
  Exit codes:
@@ -95,20 +147,21 @@ It can grab releases from Github or compile from scratch
     12 - Flag is used without its subcommand
     13 - Flag is used with wrong subcommand
     14 - Contradicting flags
-    15 - Unknow argument/flag
+    15 - Unknown argument/flag
     16 - Version did not match version-regex
  - Install failures
     20 - Directory not available to save into
     21 - Current c3c installation is not a symlink
     22 - Current c3c installation is not managed by c3vm
+    23 - Failed to ensure OK git directory
 LONG_HELP
 }
 
 function print_short_help() {
 	cat << 'SHORT_HELP'
 Usage: c3vm [<command>] [<flags>] [<args>]
-Commands: list, install [<version>], remove <version>, use <version>
-Global flags: --version, --verbose, --quiet, --help
+Commands: list, install, enable, add-local, update, remove, use
+Global flags: --verbose, --quiet, --help
 SHORT_HELP
 }
 
