@@ -1,0 +1,177 @@
+.TH C3VM 09/07/2025
+.SH NAME
+c3vm \- a c3c version manager
+
+
+.SH SYNOPSIS
+.B c3vm
+[status|list|install|enable|add-local|update|remove|use]
+
+
+.SH DESCRIPTION
+This manpage documents the use (and some of the workings) of this version
+manager for c3c (the compiler for C3).
+It is a bash script that can install and manage versions of the compiler.
+It does so by grabbing releases from github or even compiler it from scratch,
+and symlink the resulting binary to $HOME/.local/bin/c3c.
+
+
+.SH SUBCOMMANDS
+.IP status
+Shows the currently enabled compiler with type (prebuilt/compiled).
+For prebuilts it then differentiates between a prerelease or a release, for
+compiled versions it shows the remote/local and git-rev (branch, tag or commit).
+Both also differentiate between debug or release builds.
+
+.IP list
+Lists the installed compilers. TODO
+
+.IP install
+Install a version of the compiler.
+By default it grabs the specified version (default "latest") from Github, but
+this can be overriden with flags (see help-page).
+
+.IP enable
+Enable an already installed version by symlinking it.
+
+.IP add-local
+Check in a local repository into c3vm so that it can be used like you'd use a
+git-remote to build from source.
+
+.IP update
+Update the currently enabled compiler. With flags this can also update other
+installed versions of the compiler.
+
+.IP remove
+Remove installed versions of the compiler. Local repositories will not actually
+be removed, but just unlinked from c3vm.
+
+.IP use
+Use a specific version to compile your project.
+
+
+.SH EXAMPLES
+.PP
+Install and enable latest stable release
+.RS 4
+c3vm install
+.RE
+
+.PP
+Install a specific version but do not enable it
+.RS 4
+c3vm install --dont-enable v0.6.8
+.RE
+
+.PP
+Install debug compiler from source from a fork
+.RS 4
+c3vm install --from-source --remote bwindey/c3c --debug
+.RE
+
+.PP
+Use a previous version for a single time
+.RS 4
+c3vm use v0.7.1 -- compile-run my_code.c3
+.RE
+
+
+.SH DIRECTORY LAYOUT
+The installed compilers are stored under $XDG_DATA_HOME/c3vm/, where
+$XDG_DATA_HOME defaults to $HOME/.local/share/ if it isn't set.
+Inside that directory they are stored like this:
+.nf
+$XDG_DATA_HOME/c3vm/
+├── git/
+│   ├── local/
+│   │   └── own_local -> /some/path/to/local/c3c/
+│   └── remote/
+│       ├── c3lang_c3c/
+│       └── bwindey_c3c/
+│           ├── other files like README.md, src/, ...
+│           └── build/
+│               ├── release/
+│               ├── debug/
+│               ├── dev_release/
+│               ├── dev_debug/
+│               ├── v0.7.2_release/
+│               └── 2a4c6f3_release/
+├── prebuilt/
+│   ├── releases/
+│   │   ├── v0.7.1/
+│   │   ├── v0.7.2/
+│   │   └── v0.7.3/
+│   └── prereleases/
+│       ├── latest_prerelease_20250702_1/
+│       ├── ...
+┊       ┊
+.fi
+
+Git remotes are stored under 'git/remote/<user>_<repo>/'.
+Builds (remote and local) are stored under 'build/<type>', where
+<type> depends on branch, tag or commit, and ends with '_release' or '_debug'.
+Builds on a branch can be updated when the branch updates.
+Builds on tags or commits are fixed.
+
+
+.SH EXIT CODES
+.SS Starting checks
+.B 1
+\- Required directories missing and not able to create them
+.br
+.B 2
+\- Required tools are missing
+.br
+.B 3
+\- Unsupported OS (only GNU/Linux and macOS supported)
+.RE
+
+.SS Argument parsing failures
+.B 10
+\- Multiple subcommands found
+.br
+.B 11
+\- Flag misses (correct) argument
+.br
+.B 12
+\- Flag is used without its subcommand
+.br
+.B 13
+\- Flag is used with wrong subcommand
+.br
+.B 14
+\- Contradicting flags
+.br
+.B 15
+\- Unknown argument/flag
+.br
+.B 16
+\- Version did not match version-regex
+.RE
+
+.SS Status failures
+.B 20
+\- Unknown type, should be 'git' or 'prebuilt'
+.RE
+
+.SS Install failures
+.B 30
+\- Directory not available to save into
+.br
+.B 31
+\- Current c3c installation is not a symlink
+.br
+.B 32
+\- Current c3c installation is not managed by c3vm
+.br
+.B 33
+\- Failed to ensure OK git directory
+.RE
+
+.SS Add-local failures
+.B 40
+\- Given path does not exist
+.br
+.B 41
+\- Given name is invalid
+.RE
