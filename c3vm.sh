@@ -16,10 +16,10 @@ It can grab releases from Github or compile from scratch.
                             version is omitted. Will also enable the installed
                             version (unless --dont-enable).
     - enable <version>      Enable an already installed version.
-    - add-local <path> <alias>
+    - add-local <path> <name>
                             Link a local C3 compiler directory into c3vm.
                             The local compiler must use a regular CMake
-                            build-system. The alias will be the name of the
+                            build-system. The name will be the name of the
                             symlink, and used for 'update'.
     - update                Update the current active version.
     - remove <version>      Remove specified version (regex match with grep)
@@ -49,11 +49,18 @@ It can grab releases from Github or compile from scratch.
                             be tweaked with other flags.
     --checkout <ref>        Specify branch, tag or commit for --from-source as
                             you would pass it to git.
-    --remote <remote>       Use a different remote for fetching prebuilt
-                            binaries from (still from Github) or from fetching
-                            sourcecode, defaults to c3lang/c3c.
+    --local <name>          Use a local repository with name <name>
+    --remote <remote>       Use a remote for fetching prebuilt binaries from
+                            (still from Github) or from fetching sourcecode,
+                            defaults to c3lang/c3c.
                             Only supports Github remotes with tags/releases
                             following versions vx.y.z and 'latest-prerelease'.
+
+ - Enable command:
+    --debug                 Enable the debug version
+
+ - Update command:
+    Same flags as 'install', but '--checkout' only accepts branches.
 
  - Remove command:
     --interactive, -I       Prompt before removing a version
@@ -63,95 +70,13 @@ It can grab releases from Github or compile from scratch.
                             currently enabled compiler
 
  - Use command:
+    --debug                 Use debug version
     --session               Output the exports to switch current compiler
                             version in your shell session.
                             Should be used as `eval "$(c3vm use --session <version>)"`.
 
-
- Examples:
-    # Install and enable latest stable release
-    c3vm install
-
-    # Install a specific version but do not enable it
-    c3vm install --dont-enable v0.6.8
-
-    # Install debug compiler from source from a fork
-    c3vm install --from-source --remote bwindey/c3c --debug
-
-    # Use a previous version for a single time
-    c3vm use v0.7.1 -- compile-run my_code.c3
-
-
- Additional info:
-    Versions are according to the tag on github. You can request a debug-
-    build with '--debug'.
-
-    The current enabled version is symlinked (`ln -s`) to $HOME/.local/bin.
-
-    The installed compilers are stored under $XDG_DATA_HOME/c3vm/, where
-    $XDG_DATA_HOME defaults to $HOME/.local/share/ if it isn't set.
-    Inside that directory they are stored like this:
-    $XDG_DATA_HOME/c3vm/
-    ├── git/
-    │   ├── local/
-    │   │   └── own_local -> /some/path/to/local/c3c/
-    │   └── remote/
-    │       ├── c3lang_c3c/
-    │       └── bwindey_c3c/
-    │           ├── other files like README.md, src/, ...
-    │           └── build/
-    │               ├── release/
-    │               ├── debug/
-    │               ├── dev_release/
-    │               ├── dev_debug/
-    │               ├── v0.7.2_release/
-    │               └── 2a4c6f3_release/
-    ├── prebuilt/
-    │   ├── releases/
-    │   │   ├── v0.7.1/
-    │   │   ├── v0.7.2/
-    │   │   └── v0.7.3/
-    │   └── prereleases/
-    │       ├── latest_prerelease_20250702_1/
-    │       └── ...
-
-    Git remotes are stored under 'git/remote/<user>_<repo>/'.
-    Builds (remote and local) are stored under 'build/<type>', where
-    <type> depends on branch, tag or commit, and ends with '_release' or '_debug'.
-    Builds on a branch can be updated when the branch updates.
-    Builds on tags or commits are fixed.
-
-
- Planned/ideas:
-    A 'snapshot' subcommand for installing from-source that will store the
-    currently enabled compiler under an alias (probably git/snapshots/<alias>/)
-    that allows you to quickly snapshot the version, update and compare
-    behaviour.
-
-    Some kind of alias to create like 'c3c_debug' or whatever as available
-    executable. Not trivial as the script needs to know which aliasses
-    are from c3vm. Might not be implemented ever.
-
-
- Exit codes:
-    0 - OK
- - Starting checks:
-    1 - Required directories missing and not able to create them
-    2 - Required tools are missing
-    3 - Unsupported OS (only GNU/Linux and MacOS supported)
- - Argument parsing failures:
-    10 - Multiple subcommands found
-    11 - Flag misses (correct) argument
-    12 - Flag is used without its subcommand
-    13 - Flag is used with wrong subcommand
-    14 - Contradicting flags
-    15 - Unknown argument/flag
-    16 - Version did not match version-regex
- - Install failures
-    20 - Directory not available to save into
-    21 - Current c3c installation is not a symlink
-    22 - Current c3c installation is not managed by c3vm
-    23 - Failed to ensure OK git directory
+ Extra info, like example uses, directory layout for storing compilers and
+ exit codes of c3vm can be found in the manpage.
 LONG_HELP
 }
 
