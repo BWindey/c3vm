@@ -250,13 +250,22 @@ function check_subcommand_already_in_use() {
 
 function check_flag_for_subcommand() {
 	flag="$1"
-	expected_subcommand="$2"
+	shift
+	expected_subcommands=( "$@" )
 	if [[ "$subcommand" == "" ]]; then
-		echo "Flag '${flag}' requires '${expected_subcommand}' to be in front of it." >&2
+		IFS='/'; echo "Flag '${flag}' requires '${expected_subcommands[*]}' to be in front of it." >&2
 		exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
 	fi
-	if [[ "$subcommand" != "$expected_subcommand" ]]; then
-		echo "Flag '${flag}' does not belong to subcommand '${subcommand}' but to '${expected_subcommand}'" >&2
+
+	local found_sc="false"
+	for sc in "${expected_subcommands[@]}"; do
+		if [[ "$subcommand" == "$sc" ]]; then
+			found_sc="true"
+			break
+		fi
+	done
+	if [[ "$found_sc" != "true" ]]; then
+		IFS='/'; echo "Flag '${flag}' does not belong to subcommand '${subcommand}' but to '${expected_subcommands[*]}'" >&2
 		exit "$EXIT_FLAG_WITH_WRONG_SUBCOMMAND"
 	fi
 }
@@ -281,14 +290,14 @@ while [[ "$1" ]]; do case $1 in
 # Global flags
 	-v | --verbose )
 		if [[ "$quiet" == "true" ]]; then
-			echo "--quiet was already set before ${1}." >&2
+			echo "It is not possible to set '${1}' after '--quiet/-q'." >&2
 			exit "$EXIT_CONTRADICTING_FLAGS"
 		fi
 		verbose="true"
 		;;
 	-q | --quiet)
 		if [[ "$verbose" == "true" ]]; then
-			echo "--verbose was already set before ${1}." >&2
+			echo "It is not possible to set '${1}' after '--verbose/-v'."
 			exit "$EXIT_CONTRADICTING_FLAGS"
 		fi
 		quiet="true"
@@ -339,46 +348,70 @@ while [[ "$1" ]]; do case $1 in
 # List flags
 	--installed | -i)
 		check_flag_for_subcommand "$1" "list"
-		list_filters+=( "installed" )
+		if [[ "$list_filter" != "" ]]; then
+			echo "It is not possible to filter on more than one category." >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
+		list_filter="installed"
 		;;
 	--available | -a)
 		check_flag_for_subcommand "$1" "list"
-		list_filters+=( "available" )
+		if [[ "$list_filter" != "" ]]; then
+			echo "It is not possible to filter on more than one category." >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
+		list_filter="available"
 		;;
 
-# Install flags
-	--debug)
-		check_flag_for_subcommand "$1" "install"
-		install_debug="true"
-		;;
+# Install && update flags
 	--dont-enable)
-		check_flag_for_subcommand "$1" "install"
-		enable_after_install="false"
+		check_flag_for_subcommand "$1" "install" "update"
+		case "$subcommand" in
+			install) enable_after_install="false" ;;
+			update)  enable_after_update="false"  ;;
+		esac
 		;;
 	--keep-archive)
-		check_flag_for_subcommand "$1" "install"
-		install_keep_archive="true"
+		check_flag_for_subcommand "$1" "install" "update"
+		case "$subcommand" in
+			install) install_keep_archive="true" ;;
+			update)  update_keep_archive="true"  ;;
+		esac
 		;;
 
 	--from-source)
-		check_flag_for_subcommand "$1" "install"
-		install_from_source="true"
-		if [[ "$#" -gt 1 && "$2" =~ ^[a-z0-9]*$ ]]; then
-			shift
-			install_from_commit="$1"
-		fi
+		check_flag_for_subcommand "$1" "install" "update"
+		case "$subcommand" in
+			install) install_from_source="true" ;;
+			update)  update_from_source="true"  ;;
+		esac
 		;;
-	--branch)
-		check_flag_for_subcommand "$1" "install"
+	--checkout)
+		check_flag_for_subcommand "$1" "install" "update"
 		if [[ "$#" -le 1 ]]; then
-			echo "Expected argument <branch> after --branch" >&2
+			echo "Expected argument <rev> after --checkout" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		install_from_branch="$1"
+		case "$subcommand" in
+			install) install_from_rev="$1"  ;;
+			update) update_from_branch="$1" ;;
+		esac
+		;;
+	--local)
+		check_flag_for_subcommand "$1" "install" "update"
+		if [[ "$#" -le 1 ]]; then
+			echo "Expected argument <name> after --local" >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		fi
+		shift
+		case "$subcommand" in
+			install) install_local="$1" ;;
+			update)  update_local="$1"  ;;
+		esac
 		;;
 	--remote)
-		check_flag_for_subcommand "$1" "install"
+		check_flag_for_subcommand "$1" "install" "update"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -388,7 +421,10 @@ while [[ "$1" ]]; do case $1 in
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		remote="$1"
+		case "$subcommand" in
+			install) install_remote="$1" ;;
+			update)  update_remote="$1"  ;;
+		esac
 		;;
 
 # Remove flags
@@ -406,10 +442,6 @@ while [[ "$1" ]]; do case $1 in
 		;;
 
 # Use flags
-	--install)
-		check_flag_for_subcommand "$1" "use"
-		use_install="true"
-		;;
 	--session)
 		check_flag_for_subcommand "$1" "use"
 		use_session="true"
@@ -422,10 +454,31 @@ while [[ "$1" ]]; do case $1 in
 			shift
 		done
 		;;
+
+# Multi-command flags
+	--debug)
+		case "$subcommand" in
+			install) install_debug="true" ;;
+			enable)  enable_debug="true"  ;;
+			update)  update_debug="true"  ;;
+			use)     use_debug="true"     ;;
+			"")
+				echo "'--debug' is only supported for subcommands ('install', 'enable', 'update', 'use')." >&2
+				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
+				;;
+			*)
+				echo "'--debug' is not supported for subcommand '${subcommand}'" >&2
+				exit "$EXIT_FLAG_WITH_WRONG_SUBCOMMAND"
+				;;
+		esac
+		;;
+
+	# Anything that wasn't catched before is either an argument of a subcommand
+	# or just something wrong that we can error on
 	*)
 		case "$subcommand" in
-			list)
-				echo "Received unknown argument for 'list': '${1}'" >&2
+			status | list | version)
+				echo "Received unknown argument for '${subcommand}': '${1}'" >&2
 				exit "$EXIT_UNKNOWN_ARG"
 				;;
 			install)
@@ -434,18 +487,25 @@ while [[ "$1" ]]; do case $1 in
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
 				check_valid_version "$1"
-				if [[ "$1" == "v"* || "$1" =~ latest(-prerelease)? ]]; then
-					install_version="$1"
-				else
-					install_version="v$1"
-				fi
+				install_version="${return_check_valid_version}"
 				;;
-			link-local)
-				if [[ "$link_local_path" != "" ]]; then
-					echo "Link-local path was already set to '${link_local_path}', cannot reset it to '${1}'" >&2
+			enable)
+				if [[ "$enable_version" != "" ]]; then
+					echo "Version was already set to '${install_version}', cannot reset it to '${1}'" >&2
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
-				link_local_path="$1"
+				check_valid_version "$1"
+				enable_version="${return_check_valid_version}"
+				;;
+			add-local)
+				if [[ "$add_local_name" != "" ]]; then
+					echo "Link-local path and name were already set, cannot reset it to '${1}'" >&2
+					exit "$EXIT_CONTRADICTING_FLAGS"
+				elif [[ "$add_local_path" != "" ]]; then
+					add_local_name="$1"
+				else
+					add_local_path="$1"
+				fi
 				;;
 			remove)
 				if [[ "$remove_version" != "" ]]; then
@@ -461,11 +521,7 @@ while [[ "$1" ]]; do case $1 in
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
 				check_valid_version "$1"
-				if [[ "$1" == "v"* || "$1" =~ latest(-prerelease)? ]]; then
-					use_version="$1"
-				else
-					use_version="v$1"
-				fi
+				use_version="${return_check_valid_version}"
 				;;
 			*)
 				echo "Received unknown argument: '${1}'"
@@ -476,23 +532,39 @@ while [[ "$1" ]]; do case $1 in
 esac; shift; done
 
 
-# Check that 'remove' and 'use' have gotten a version.
-# We do that here instead of in the 'case remove)' because
-# 'c3vm remove --interactive v0.6*' is valid
+# Check that the subcommands who need it got their arguments
+# We do that here instead of in the argparsing because I want to allow
+# subcommand-arguments behind flags.
+# F.e.'c3vm remove --interactive v0.6*' is valid
 case "$subcommand" in
+	enable | use)
+		if [[ "$enable_version" == "" ]]; then
+			echo "Expected version behind '${subcommand}' subcommand." >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		fi
+		;;
+	add-local)
+		if [[ "$add_local_path" == "" || "$add_local_name" ]]; then
+			echo "Expected path and name behind 'add-local' subcommand." >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		fi
+		if ! [[ -e "$add_local_path" ]]; then
+			echo "Path '$add_local_path' does not exist." >&2
+			exit "$EXIT_ADDLOCAL_NONEXISTING_PATH"
+		fi
+		if [[ "$add_local_name" =~ .*/.* ]]; then
+			echo "'add-local' <name> cannot contain slashes ('/')" >&2
+			exit "$EXIT_ADDLOCAL_INVALID_NAME"
+		fi
+		;;
 	remove)
 		if [[ "$remove_version" == "" ]]; then
 			echo "Expected version behind 'remove' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		if [[ "$remove_regex_match" == "false" ]]; then
+			# Catch the echo in a variable to not accidently print to stdout
 			check_valid_version "$remove_version"
-		fi
-		;;
-	use)
-		if [[ "$use_version" == "" ]]; then
-			echo "Expected version behind 'use' subcommand." >&2
-			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		;;
 esac
