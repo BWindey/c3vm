@@ -670,8 +670,8 @@ function c3vm_list() {
 
 function determine_download_release() {
 	if [[ "$install_version" == "latest" ]]; then
-		get_available_versions
-		sed -n '2P' <<< "$available_versions"
+		# Get available versions and take second in list
+		get_available_versions | sed -n '2P'
 	else
 		echo "$install_version"
 	fi
@@ -724,10 +724,22 @@ function enable_compiler_symlink() {
 
 	echo "Linking (installed) executable to ${symlink_location}..."
 
-	if [[ -e "${symlink_location}" ]]; then
-		if ! [[ -h "$symlink_location" ]]; then
-			echo "'${symlink_location}' is not a symlink, aborting installation" >&2
-			exit "$EXIT_INSTALL_CURRENT_NO_SYMLINK"
+	# Check first if it's a symlink, so we can detect if it's broken if -e
+	# returns false
+	if [[ -h "${symlink_location}" ]]; then
+		if [[ ! -e "${symlink_location}" ]]; then
+			# Broken symlink
+			echo "Symlink '${symlink_location}' is broken."
+			echo "It currently points to:"
+			readlink "$symlink_location"
+			echo -n "Permission to overwrite? [y/n] "
+			read -r ans
+			if [[ "$ans" ]]; then
+				unlink "$symlink_location"
+			else
+				echo "Cannot continue before broken link is removed or fixed." >&2
+				exit "$EXIT_ENABLE_BROKEN_SYMLINK"
+			fi
 		elif [[ "$(readlink "$symlink_location")" != "$dir_compilers"* ]]; then
 			echo "Symlink is not managed by 'c3vm' (points to '$(readlink "$symlink_location")')"
 			echo -n "Unlink and link c3vm-installed version? [y/n] "
@@ -741,6 +753,11 @@ function enable_compiler_symlink() {
 		else
 			unlink "$symlink_location"
 		fi
+
+	elif [[ -e "${symlink_location}" ]]; then
+		# Not a symlink but does exist -> regular file
+		echo "'${symlink_location}' exists but is not a symlink, aborting installation" >&2
+		exit "$EXIT_INSTALL_CURRENT_NO_SYMLINK"
 	fi
 
 	# Not hardcoding path because macos zips are of the form 'macos/c3c'
