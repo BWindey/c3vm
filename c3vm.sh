@@ -771,8 +771,25 @@ function download_known_release() {
 	local version
 	version="$(determine_download_release)"
 
-	local output_dir="${dir_compilers}/${version}"
+	# Determine output directory
+	local output_dir="${dir_compilers}/prebuilt"
+	case "${version}" in
+		latest-prerelease)
+			output_dir="${output_dir}/prereleases"
+			local current_date
+			current_date="$(date +%Y%M%d_%H%S)" # Unique per second
+			output_dir="${output_dir}/latest-prerelease_${current_date}"
+			;;
+		v*)
+			output_dir="${output_dir}/releases/${version}"
+			;;
+		*)
+			echo "Encountered unexpected error: did not recognize version '${version}'" >&2
+			exit "$EXIT_INSTALL_UNKNOWN_VERSION"
+			;;
+	esac
 
+	# Determine the name of the file to download
 	local asset_name=""
 	local extension=""
 	case "$operating_system" in
@@ -791,17 +808,19 @@ function download_known_release() {
 		asset_name="c3-${operating_system}.${extension}"
 	fi
 
+	# Set up the output directory
 	if ! ensure_download_directory "$output_dir"; then
-		# Directory already contains c3c → just enable if requested
+		# Directory already contains c3c -> just enable if requested
 		if [[ "$enable_after_install" == "true" ]]; then
 			enable_compiler_symlink "$output_dir"
 		fi
 		exit "$EXIT_OK"
 	fi
 
-	local url="https://github.com/${remote}/releases/download/${version}/${asset_name}"
+	# Download the file
+	local url="https://github.com/${install_remote}/releases/download/${version}/${asset_name}"
 
-	echo "Downloading ${url}..."
+	[[ "$quiet" != "true" ]] && echo "Downloading ${url}..."
 	curl --progress-bar -L -o "${output_dir}/${asset_name}" "$url"
 
 	# Check for too small file or HTML error-page
@@ -811,7 +830,7 @@ function download_known_release() {
 	then
 		echo "Download failed or invalid archive received." >&2
 		rm "${output_dir}/${asset_name}"
-		exit "$EXIT_DOWNLOAD_FAILED"
+		exit "$EXIT_INSTALL_DOWNLOAD_FAILED"
 	fi
 
 	echo "Extracting ${asset_name}..."
