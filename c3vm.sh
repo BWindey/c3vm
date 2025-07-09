@@ -868,6 +868,9 @@ function c3vm_install() {
 }
 
 case "$subcommand" in
+	status)
+		c3vm_status
+		;;
 	list)
 		c3vm_list
 		;;
@@ -875,5 +878,5 @@ case "$subcommand" in
 		c3vm_install
 		;;
 	*)
-		echo "'$subcommand' not implemented yet"
+		echo "'${subcommand}' not implemented yet"
 esac
