@@ -646,44 +646,26 @@ function c3vm_list_installed() {
 	echo "TODO"
 }
 
-available_versions=""
 function get_available_versions() {
 	log_verbose "Getting the available version from GitHub..."
-	available_versions="$(
-		curl -s "https://api.github.com/repos/${remote}/releases" \
-		| jq -r '.[].tag_name' \
-		| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$" \
-	)"
+	curl -s "https://api.github.com/repos/${install_remote}/releases" \
+	| jq -r '.[].tag_name' \
+	| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$"
 }
 
 function c3vm_list_available() {
 	get_available_versions
-
-	start_list "Available"
-
-	echo "$available_versions"
-
-	end_list
 }
 
 function c3vm_list() {
-	if [[ "${#list_filters}" == 0 ]]; then
-		list_filters+=( "installed" )
-	fi
-
-	for filter in "${list_filters[@]}"; do
-		case "$filter" in
-			installed)
-				c3vm_list_installed
-				;;
-			enabled)
-				c3vm_list_enabled
-				;;
-			available)
-				c3vm_list_available
-				;;
-		esac
-	done
+	case "$list_filter" in
+		installed)
+			c3vm_list_installed
+			;;
+		available)
+			c3vm_list_available
+			;;
+	esac
 }
 
 function determine_download_release() {
