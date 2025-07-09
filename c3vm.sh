@@ -105,18 +105,28 @@ EXIT_FLAG_WITHOUT_SUBCOMMAND=12
 EXIT_FLAG_WITH_WRONG_SUBCOMMAND=13
 EXIT_CONTRADICTING_FLAGS=14
 EXIT_UNKNOWN_ARG=15
-EXIT_INVALID_VERSION=16
+EXIT_UNSUPPORTED_VERSION=16
+EXIT_INVALID_VERSION=17
 
-EXIT_INSTALL_NO_DIR=20
-EXIT_INSTALL_CURRENT_NO_SYMLINK=21
-EXIT_INSTALL_NOT_C3VM_OWNED=22
-EXIT_INSTALL_GIT_DIR=23
+EXIT_STATUS_UNKNOWN_TYPE=20
+
+EXIT_INSTALL_NO_DIR=30
+EXIT_INSTALL_UNKNOWN_VERSION=31
+EXIT_INSTALL_DOWNLOAD_FAILED=32
+EXIT_INSTALL_CURRENT_NO_SYMLINK=33
+EXIT_INSTALL_NOT_C3VM_OWNED=34
+EXIT_INSTALL_GIT_DIR=35
+
+EXIT_ENABLE_BROKEN_SYMLINK=40
+
+EXIT_ADDLOCAL_NONEXISTING_PATH=50
+EXIT_ADDLOCAL_INVALID_NAME=51
 
 
 function ensure_directories() {
 	for directory in "$dir_compilers" "$dir_bin_link"; do
 		if ! [[ -e "$directory" && -d "$directory" ]]; then
-			echo "$directory does not exist to store compilers in."
+			echo "$directory does not exist, but is needed for this script."
 			echo -n "Create directory? [y/n] "
 			read -r ans
 			if [[ "$ans" == y ]]; then
@@ -127,6 +137,9 @@ function ensure_directories() {
 			fi
 		fi
 	done
+
+	mkdir -p "${dir_compilers}/git/"{local,remote}/
+	mkdir -p "${dir_compilers}/prebuilt/"{releases,prereleases}/
 }
 
 # OS filled in by check_platform, used to download correct release from GitHub
@@ -185,24 +198,36 @@ ensure_tools
 # Default values that can be changed with subcommands and flags
 verbose="false"
 quiet="false"
+
 subcommand=""
-install_version=""
+
+install_version="latest"
+enable_version=""
 remove_version=""
 use_version=""
 
-list_filters=()
+list_filter=""
 
-remote="c3lang/c3c"
-
-install_version="latest"
-install_from_source="false"
-install_from_commit=""
-install_from_branch="master"
-install_debug="false"
 install_keep_archive="false"
+install_debug="false"
 enable_after_install="true"
+install_local=""
+install_remote="c3lang/c3c"
+install_from_source="false"
+install_from_rev="master"
 
-link_local_path=""
+enable_debug=""
+
+add_local_path=""
+add_local_name=""
+
+update_keep_archive="false"
+update_debug="false"
+enable_after_update="true"
+update_local=""
+update_remote="c3lang/c3c"
+update_from_source="false"
+update_from_branch=""
 
 remove_version=""
 remove_interactive="false"
@@ -210,7 +235,7 @@ remove_regex_match="true"
 remove_inactive="false"
 
 use_version=""
-use_install="false"
+use_debug="false"
 use_session="false"
 use_compiler_args=()
 
