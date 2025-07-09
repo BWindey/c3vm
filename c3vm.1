@@ -88,7 +88,7 @@ $XDG_DATA_HOME/c3vm/
 │   └── remote/
 │       ├── c3lang_c3c/
 │       └── bwindey_c3c/
-│           ├── other files like README.md, src/, ...
+│           ├── ... other files like README.md, src/, ...
 │           └── build/
 │               ├── release/
 │               ├── debug/
@@ -107,6 +107,10 @@ $XDG_DATA_HOME/c3vm/
 ┊       ┊
 .fi
 
+If you ever get the error message 'Unexpected type '...'. Check the man-page.',
+see if your '$XDG_DATA_HOME/c3vm/' directory matches the one above. There should
+be no third directory at the 'git/prebuilt' level.
+
 Git remotes are stored under 'git/remote/<user>_<repo>/'.
 Builds (remote and local) are stored under 'build/<type>', where
 <type> depends on branch, tag or commit, and ends with '_release' or '_debug'.
@@ -124,7 +128,6 @@ Builds on tags or commits are fixed.
 .br
 .B 3
 \- Unsupported OS (only GNU/Linux and macOS supported)
-.RE
 
 .SS Argument parsing failures
 .B 10
@@ -146,32 +149,43 @@ Builds on tags or commits are fixed.
 \- Unknown argument/flag
 .br
 .B 16
+\- Version is too low, c3vm only supports from v0.6.0 and upwards
+.br
+.B 17
 \- Version did not match version-regex
-.RE
+.br
 
 .SS Status failures
 .B 20
 \- Unknown type, should be 'git' or 'prebuilt'
-.RE
 
 .SS Install failures
 .B 30
 \- Directory not available to save into
 .br
 .B 31
-\- Current c3c installation is not a symlink
+\- Version was not recognized when determening the directory path
 .br
 .B 32
-\- Current c3c installation is not managed by c3vm
+\- Download failed
 .br
 .B 33
+\- Current c3c installation is not a symlink
+.br
+.B 34
+\- Current c3c installation is not managed by c3vm
+.br
+.B 35
 \- Failed to ensure OK git directory
-.RE
+
+.SS Enable failures
+.B 40
+\- Broken symlink in '$HOME/.local/bin/c3c'
+.br
 
 .SS Add-local failures
-.B 40
+.B 50
 \- Given path does not exist
 .br
-.B 41
+.B 51
 \- Given name is invalid
-.RE
