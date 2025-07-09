@@ -598,54 +598,52 @@ function log_verbose() {
 # They assume that argument-parsing happened correctly, and will use the
 # global variables.
 
-declare -i _amount_filters_printed=0
+function c3vm_status() {
+	local c3c_path
+	local enabled_compiler
 
-function start_list() {
-	filter_name="$1"
-	amount_filters="${#list_filters[@]}"
+	c3c_path="$(which c3c 2>/dev/null)"
 
-	if [[ "$amount_filters" -gt 1 ]]; then
-		echo -e "\e[1;4m${filter_name}:\e[0m"
+	if [[ "$c3c_path" == "" ]]; then
+		echo "No c3c in \$PATH."
+		exit "$EXIT_OK"
+	elif [[ ! -h "$c3c_path" ]]; then
+		echo "'${c3c_path}' is not managed by c3vm (not a symlink)."
+		exit "$EXIT_OK"
 	fi
-	_amount_filters_printed+=1
-}
 
-function end_list() {
-	amount_filters="${#list_filters[@]}"
+	enabled_compiler="$(readlink "$c3c_path")"
 
-	if (( _amount_filters_printed < amount_filters )); then
-		echo ""
+	if ! [[ "$enabled_compiler" == "$dir_compilers"* ]]; then
+		echo "Currently enabled compiler is not managed by c3vm!"
+		exit "$EXIT_OK"
 	fi
+	local without_pref="${enabled_compiler#"$dir_compilers"/}"
+	local type="${without_pref%%/*}" # prebuilt or git
+	local rest="${without_pref#*/}"
+
+	case "$type" in
+		git)
+			;;
+		prebuilt)
+			local release_type="${rest%%/*}"
+			rest="${rest#*/}"
+			local release_version="${rest%%/*}"
+
+			echo "Current active compiler: ${type} ${release_type%s} on version ${release_version}"
+			[[ "$verbose" == "true" ]] && echo "Stored in: ${enabled_compiler}"
+			;;
+		*)
+			echo "Unexpected type '${type}'." >&2
+			echo "Please check the man-page for how to fix this." >&2
+			exit "$EXIT_STATUS_UNKNOWN_TYPE"
+			;;
+	esac
 }
 
 function c3vm_list_installed() {
-	installed_compilers=$(ls -1 "$dir_compilers")
-
-	start_list "Installed"
-
-	if [[ "$installed_compilers" == "" ]]; then
-		echo "No versions installed yet. Install one with 'c3vm install'."
-	else
-		echo "$installed_compilers"
-	fi
-
-	end_list
-}
-
-function c3vm_list_enabled() {
-	enabled_compiler=$(readlink "$(which c3c 2>/dev/null)")
-
-	start_list "Enabled"
-
-	if [[ "$enabled_compiler" == "" ]]; then
-		echo "No compiler was enabled yet. Enable one with 'c3vm install'."
-	elif ! [[ "$enabled_compiler" == "$dir_compilers"* ]]; then
-		echo "Currently enabled compiler is not managed by c3vm!"
-	else
-		echo "$enabled_compiler"
-	fi
-
-	end_list
+	# TODO: implement
+	echo "TODO"
 }
 
 available_versions=""
