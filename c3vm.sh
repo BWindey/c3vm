@@ -270,14 +270,27 @@ function check_flag_for_subcommand() {
 	fi
 }
 
+# Check if the version passed as argument is valid, and echo back a "normalised"
+# version (which means that it adds a 'v' in front if needed)
+return_check_valid_version=""
 function check_valid_version() {
-	if [[ "$1" =~ ^latest(-prerelease)?$ ]]; then
-		return 0
+	if [[ "$1" =~ ^v?0\.[0-5]\..* ]]; then
+		echo "Versions below v0.6.0 are not supported (asked for '${1}')" >&2
+		exit "$EXIT_UNSUPPORTED_VERSION"
+	fi
+	if [[ "$1" =~ ^latest([-_]prerelease)?$ ]]; then
+		return_check_valid_version="${1/_/-}"
+		return
 	fi
 	if ! [[ "$1" =~ ^v?[0-9]\.[0-9]+\.[0-9]+(-debug)?$ ]]; then
 		echo "Tried to use '$1' as version, but does not match the version-regex." >&2
 		echo "A valid version is of the form (v)?<num>.<num>.<num>(-debug)? or latest(-prerelease)?" >&2
 		exit "$EXIT_INVALID_VERSION"
+	fi
+	if [[ "$1" == "v"* ]]; then
+		return_check_valid_version="$1"
+	else
+		return_check_valid_version="v$1"
 	fi
 }
 
