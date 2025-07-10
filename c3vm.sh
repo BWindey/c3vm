@@ -208,11 +208,13 @@ use_version=""
 
 list_filter=""
 
+# Global options
+remote="c3lang/c3c"
+
 install_keep_archive="false"
 install_debug="false"
 enable_after_install="true"
 install_local=""
-install_remote="c3lang/c3c"
 install_from_source="false"
 install_from_rev="master"
 
@@ -225,7 +227,6 @@ update_keep_archive="false"
 update_debug="false"
 enable_after_update="true"
 update_local=""
-update_remote="c3lang/c3c"
 update_from_source="false"
 update_from_branch=""
 
@@ -434,10 +435,7 @@ while [[ "$1" ]]; do case $1 in
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		case "$subcommand" in
-			install) install_remote="$1" ;;
-			update)  update_remote="$1"  ;;
-		esac
+		remote="$1"
 		;;
 
 # Remove flags
@@ -624,6 +622,7 @@ function c3vm_status() {
 
 	case "$type" in
 		git)
+			# TODO:
 			;;
 		prebuilt)
 			local release_type="${rest%%/*}"
@@ -648,7 +647,7 @@ function c3vm_list_installed() {
 
 function get_available_versions() {
 	log_verbose "Getting the available version from GitHub..."
-	curl -s "https://api.github.com/repos/${install_remote}/releases" \
+	curl -s "https://api.github.com/repos/${remote}/releases" \
 	| jq -r '.[].tag_name' \
 	| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$"
 }
@@ -818,7 +817,7 @@ function download_known_release() {
 	fi
 
 	# Download the file
-	local url="https://github.com/${install_remote}/releases/download/${version}/${asset_name}"
+	local url="https://github.com/${remote}/releases/download/${version}/${asset_name}"
 
 	[[ "$quiet" != "true" ]] && echo "Downloading ${url}..."
 	curl --progress-bar -L -o "${output_dir}/${asset_name}" "$url"
