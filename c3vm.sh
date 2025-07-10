@@ -116,6 +116,8 @@ EXIT_INSTALL_DOWNLOAD_FAILED=32
 EXIT_INSTALL_CURRENT_NO_SYMLINK=33
 EXIT_INSTALL_NOT_C3VM_OWNED=34
 EXIT_INSTALL_GIT_DIR=35
+EXIT_INSTALL_UNRECOGOGNIZED_REMOTE=36
+EXIT_INSTALL_CANT_CLONE=37
 
 EXIT_ENABLE_BROKEN_SYMLINK=40
 
@@ -910,7 +912,43 @@ function ensure_remote_git_directory() {
 }
 
 function c3vm_install_from_source() {
-	true
+	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+	ensure_remote_git_directory "$git_dir"
+
+	local current_pwd
+	current_pwd="$(pwd)"
+
+	if ! cd "$git_dir"; then
+		echo "Failed to enter '${git_dir}' to install '${install_version}' in it"
+		exit "$EXIT_INSTALL_GIT_DIR"
+	fi
+
+	if [[ "$return_ensure_remote_git_directory" == "true" ]]; then
+		echo -n "To clone the remote repository, use https or ssh? [h/s] "
+		read -r ans
+		local clone_link
+		case "$ans" in
+			h)
+				clone_link="https://github.com/${remote}.git"
+				;;
+			s)
+				clone_link="git@github.com:${remote}.git"
+				;;
+			*)
+				echo "Unknown answer '${ans}' (expected 'h' or 's')" 2>&1
+				exit "$EXIT_INSTALL_CANT_CLONE"
+				;;
+		esac
+
+		if ! git clone "${clone_link}" . ; then
+			echo "Failed to clone '${clone_link}'" >&2
+			exit "$EXIT_INSTALL_CANT_CLONE"
+		fi
+	fi
+
+	echo "TODO: check if CMakeLists.txt, setup build folders, build, link"
+
+	cd "$current_pwd" || exit
 }
 
 function c3vm_install() {
