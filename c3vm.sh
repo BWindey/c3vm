@@ -850,8 +850,63 @@ function download_known_release() {
 	enable_compiler_symlink "$output_dir"
 }
 
-function ensure_git_directory() {
-	local git_dir="${}"
+# Signal if we need to git clone first or if it already exists
+return_ensure_remote_git_directory="true"
+function ensure_remote_git_directory() {
+	local git_dir="$1"
+
+	if [[ -e "$git_dir" ]]; then
+		if ! [[ -e "${git_dir}/.git/" || -d "${git_dir}/.git/" ]]; then
+			echo "'${git_dir}' already exists but is not a git repository."
+			echo "Continue and overwrite directory? [y/n] "
+			read -r ans
+			if [[ "$ans" == y ]]; then
+				if ! rm -r "${git_dir}"; then
+					echo "Failed to remove '${git_dir}' before recreating." >&2
+					exit "$EXIT_INSTALL_NO_DIR"
+				fi
+				if ! mkdir -p "${git_dir}"; then
+					echo "Failed to create '${git_dir}'." >&2
+					exit "$EXIT_INSTALL_NO_DIR"
+				fi
+			else
+				echo "Aborting install." >&2
+				exit "$EXIT_INSTALL_NO_DIR"
+			fi
+
+		else
+			# Check if it the git-directory is the requested remote
+			local current_pwd
+			current_pwd="$(pwd)"
+
+			if ! cd "$git_dir"; then
+				echo "Failed to enter '${git_dir}' to check it"
+				exit "$EXIT_INSTALL_GIT_DIR"
+			fi
+			local current_remote_link
+			current_remote_link="$(
+				git remote -v 2>/dev/null |
+					grep -F "fetch" |
+					tr '\t' ' ' |
+					cut -d ' ' -f 2
+			)"
+
+			case "$current_remote_link" in
+				"https://github.com/${remote}"* | "git@github.com:${remote}"*)
+					# Everything fine
+					;;
+				*)
+					echo "Did not recognize git-remote link: '${current_remote_link}'" >&2
+					echo "while checking if '${git_dir}' has the expected remote." >&2
+					exit "$EXIT_INSTALL_UNRECOGOGNIZED_REMOTE"
+			esac
+
+			cd "$current_pwd" || exit
+			return_ensure_remote_git_directory="false" # git repo already exists
+		fi
+	else
+		mkdir -p "$git_dir"
+	fi
 }
 
 function c3vm_install_from_source() {
