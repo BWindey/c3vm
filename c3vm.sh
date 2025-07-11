@@ -594,7 +594,35 @@ function c3vm_status() {
 
 	case "$type" in
 		git)
-			# TODO:
+			local git_type="${rest%%/*}"
+			rest="${rest#*/}"
+
+			case "$git_type" in
+				local)
+					# TODO:
+					;;
+				remote)
+					local remote_name="${rest%%/*}"
+					rest="${rest#*build/}"
+					local build_folder="${rest%%/*}"
+
+					local build_type="${build_folder##*_}" # release/debug
+					local git_rev="${build_folder%"$build_type"}"
+					if [[ "$git_rev" == "" ]]; then
+						git_rev="default branch"
+					else
+						git_rev="rev ${git_rev%_}"
+					fi
+
+					echo "Current active compiler: compiled from source from remote '${remote_name}'."
+					echo "${build_type^} build on ${git_rev}."
+					;;
+				*)
+					echo "Unexpected git-type: ${git_type}" >&2
+					echo "Kapoetskie" >&2
+					exit "$EXIT_STATUS_UNKNOWN_TYPE"
+					;;
+			esac
 			;;
 		prebuilt)
 			local release_type="${rest%%/*}"
