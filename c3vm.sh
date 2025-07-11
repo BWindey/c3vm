@@ -668,11 +668,11 @@ function c3vm_list() {
 }
 
 function determine_download_release() {
-	if [[ "$install_version" == "latest" ]]; then
+	if [[ "$version" == "latest" ]]; then
 		# Get available versions and take second in list
 		get_available_versions | sed -n '2P'
 	else
-		echo "$install_version"
+		echo "$version"
 	fi
 }
 
@@ -800,7 +800,7 @@ function download_known_release() {
 			;;
 	esac
 
-	if [[ "$install_debug" == "true" ]]; then
+	if [[ "$debug_version" == "true" ]]; then
 		asset_name="c3-${operating_system}-debug.${extension}"
 		output_dir="${output_dir}-debug"
 	else
@@ -810,7 +810,7 @@ function download_known_release() {
 	# Set up the output directory
 	if ! ensure_download_directory "$output_dir"; then
 		# Directory already contains c3c -> just enable if requested
-		if [[ "$enable_after_install" == "true" ]]; then
+		if [[ "$enable_after" == "true" ]]; then
 			enable_compiler_symlink "$output_dir"
 		fi
 		exit "$EXIT_OK"
@@ -842,7 +842,7 @@ function download_known_release() {
 			unzip "${output_dir}/${asset_name}" -d "${output_dir}"
 	esac
 
-	if [[ "$install_keep_archive" != "true" ]]; then
+	if [[ "$keep_archive" != "true" ]]; then
 		echo "Removing archive..."
 		rm "${output_dir}/${asset_name}"
 	fi
@@ -911,7 +911,7 @@ function ensure_remote_git_directory() {
 
 # This function assumes you're already inside the git repository, and will
 # return inside the created build-folder from where 'cmake ../..' can be executed
-function c3vm_install_setup_build_folders() {
+function install_setup_build_folders() {
 	local git_dir="$1"
 
 	# Determine build-directory, f.e. build/v0.7.2_debug/
@@ -932,30 +932,30 @@ function c3vm_install_setup_build_folders() {
 	fi
 
 	# If not default branch, determine what to add before release/debug
-	if [[ "$install_from_rev" != "default" ]]; then
+	if [[ "$from_rev" != "default" ]]; then
 		# Check if it's a branch
-		if git show-ref --verify --quiet "refs/heads/${install_from_rev}"; then
-			build_dir="${build_dir}/${install_from_rev}_"
+		if git show-ref --verify --quiet "refs/heads/${from_rev}"; then
+			build_dir="${build_dir}/${from_rev}_"
 
 		# Check if it's a tag
-		elif git show-ref --verify --quiet "refs/tags/${install_from_rev}"; then
-			build_dir="${build_dir}/${install_from_rev}_"
+		elif git show-ref --verify --quiet "refs/tags/${from_rev}"; then
+			build_dir="${build_dir}/${from_rev}_"
 
 		# Check if it's a valid commit (full or short hash)
-		elif git rev-parse --quiet --verify "${install_from_rev}^{commit}" >/dev/null; then
+		elif git rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null; then
 			local commit_hash
-			commit_hash="$(git rev-parse --quiet --verify "${install_from_rev}^{commit}" >/dev/null)"
+			commit_hash="$(git rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null)"
 			build_dir="${build_dir}/${commit_hash::7}"
 
 		else
-			echo "Git does not know '${install_from_rev}'." >&2
+			echo "Git does not know '${from_rev}'." >&2
 			exit "$EXIT_INSTALL_UNKNOWN_REV"
 		fi
 	else
 		build_dir="${build_dir}/"
 	fi
 
-	if [[ "$install_debug" == "true" ]]; then
+	if [[ "$debug_version" == "true" ]]; then
 		build_dir="${build_dir}debug"
 	else
 		build_dir="${build_dir}release"
@@ -989,7 +989,7 @@ function c3vm_install_setup_build_folders() {
 	fi
 }
 
-function c3vm_install_from_source() {
+function install_from_source() {
 	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
 	ensure_remote_git_directory "$git_dir"
 
@@ -997,7 +997,7 @@ function c3vm_install_from_source() {
 	current_pwd="$(pwd)"
 
 	if ! cd "$git_dir"; then
-		echo "Failed to enter '${git_dir}' to install '${install_version}' in it"
+		echo "Failed to enter '${git_dir}' to install '${version}' in it"
 		exit "$EXIT_INSTALL_GIT_DIR"
 	fi
 
@@ -1036,9 +1036,9 @@ function c3vm_install_from_source() {
 		fi
 	done
 
-	c3vm_install_setup_build_folders "${git_dir}"
+	install_setup_build_folders "${git_dir}"
 
-	if [[ "$install_debug" == "true" ]]; then
+	if [[ "$debug_version" == "true" ]]; then
 		if ! cmake -DCMAKE_BUILD_TYPE=Debug ../..; then
 			echo "Failed to call CMake" >&2
 			exit "$EXIT_INSTALL_BUILD_FAILURE"
@@ -1061,8 +1061,8 @@ function c3vm_install_from_source() {
 }
 
 function c3vm_install() {
-	if [[ "$install_from_source" == "true" ]]; then
-		c3vm_install_from_source
+	if [[ "$from_source" == "true" ]]; then
+		install_from_source
 	else
 		download_known_release
 	fi
