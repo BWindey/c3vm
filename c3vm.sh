@@ -1026,7 +1026,38 @@ function c3vm_install_from_source() {
 		fi
 	fi
 
-	echo "TODO: check if CMakeLists.txt, setup build folders, build, link"
+	if ! [[ -e "CMakeLists.txt" ]]; then
+		echo "Couldn't find CMakeLists.txt inide ${git_dir}, cannot build." >&2
+		exit "$EXIT_INSTALL_NO_CMAKE"
+	fi
+
+	for command in "cmake" "make"; do
+		if ! command -v "$command" >/dev/null; then
+			echo "Missing '${command}' to build"
+			exit "$EXIT_MISSING_TOOLS"
+		fi
+	done
+
+	c3vm_install_setup_build_folders "${git_dir}"
+
+	if [[ "$install_debug" == "true" ]]; then
+		if ! cmake -DCMAKE_BUILD_TYPE=Debug ../..; then
+			echo "Failed to call CMake" >&2
+			exit "$EXIT_INSTALL_BUILD_FAILURE"
+		fi
+	else
+		if ! cmake -DCMAKE_BUILD_TYPE=Release ../..; then
+			echo "Failed to call CMake" >&2
+			exit "$EXIT_INSTALL_BUILD_FAILURE"
+		fi
+	fi
+
+	if ! make -j "$jobcount"; then
+		echo "Failed to execute make" >&2
+		exit "$EXIT_INSTALL_BUILD_FAILURE"
+	fi
+
+	enable_compiler_symlink "$(pwd)"
 
 	cd "$current_pwd" || exit
 }
