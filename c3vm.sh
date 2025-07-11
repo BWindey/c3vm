@@ -55,6 +55,8 @@ It can grab releases from Github or compile from scratch.
                             defaults to c3lang/c3c.
                             Only supports Github remotes with tags/releases
                             following versions vx.y.z and 'latest-prerelease'.
+    --jobs, -j <count>      Number of jobs to use with 'make -j <job-count>'
+                            (Default 16)
 
  - Enable command:
     --debug                 Enable the debug version
@@ -116,13 +118,18 @@ EXIT_INSTALL_DOWNLOAD_FAILED=32
 EXIT_INSTALL_CURRENT_NO_SYMLINK=33
 EXIT_INSTALL_NOT_C3VM_OWNED=34
 EXIT_INSTALL_GIT_DIR=35
-EXIT_INSTALL_UNRECOGOGNIZED_REMOTE=36
+EXIT_INSTALL_UNRECOGNIZED_REMOTE=36
 EXIT_INSTALL_CANT_CLONE=37
+EXIT_INSTALL_NO_CMAKE=38
+EXIT_INSTALL_BUILD_DIR=39
+EXIT_INSTALL_NO_VALID_REMOTE=40
+EXIT_INSTALL_UNKNOWN_REV=41
+EXIT_INSTALL_BUILD_FAILURE=41
 
-EXIT_ENABLE_BROKEN_SYMLINK=40
+EXIT_ENABLE_BROKEN_SYMLINK=50
 
-EXIT_ADDLOCAL_NONEXISTING_PATH=50
-EXIT_ADDLOCAL_INVALID_NAME=51
+EXIT_ADDLOCAL_NONEXISTING_PATH=60
+EXIT_ADDLOCAL_INVALID_NAME=61
 
 
 function ensure_directories() {
@@ -218,7 +225,9 @@ install_debug="false"
 enable_after_install="true"
 install_local=""
 install_from_source="false"
-install_from_rev="master"
+install_from_rev="default"
+
+jobcount="16"
 
 enable_debug=""
 
@@ -438,6 +447,18 @@ while [[ "$1" ]]; do case $1 in
 		fi
 		shift
 		remote="$1"
+		;;
+	--jobs | -j)
+		check_flag_for_subcommand "$1" "install" "update"
+		if [[ "$#" -le 1 ]]; then
+			echo "Expected <count> behind ${1}" >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		elif [[ ! "$2" =~ ^[0-9]+$  ]]; then
+			echo "${1} did not get valid number '$2'" >&2
+			exit "$EXIT_FLAG_ARGS_ISSUE"
+		fi
+		shift
+		jobcount="$1"
 		;;
 
 # Remove flags
@@ -900,7 +921,7 @@ function ensure_remote_git_directory() {
 				*)
 					echo "Did not recognize git-remote link: '${current_remote_link}'" >&2
 					echo "while checking if '${git_dir}' has the expected remote." >&2
-					exit "$EXIT_INSTALL_UNRECOGOGNIZED_REMOTE"
+					exit "$EXIT_INSTALL_UNRECOGNIZED_REMOTE"
 			esac
 
 			cd "$current_pwd" || exit
