@@ -1068,6 +1068,94 @@ function c3vm_install() {
 	fi
 }
 
+function enable_prebuilt() {
+	local to_search="${version}"
+	if [[ "$debug_version" == "true" ]]; then
+		to_search="${to_search}-debug"
+	fi
+
+	local matches
+	mapfile -t matches < <(find "${dir_compilers}/prebuilt/" -type d -name "${to_search}*" 2>/dev/null)
+
+	match_count="${#matches[@]}"
+
+		case "$match_count" in
+			0)
+				echo "No compilers installed that match ${to_search}" >&2
+				exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+				;;
+			1)
+				enable_compiler_symlink "${matches[0]}"
+				exit "$EXIT_OK"
+				;;
+			*)
+				echo "Found multiple matches:"
+				printf '%s\n' "${matches[@]}"
+				echo "Run command again with one of those."
+				exit "$EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND"
+				;;
+		esac
+	}
+
+function enable_from_source() {
+	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+
+	if [[ ! -d "$git_dir" || ! -d "${git_dir}/.git" ]]; then
+		echo "Git repository not found in '${git_dir}'." >&2
+		echo "Try running: c3vm install --from-source ..." >&2
+		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+	fi
+
+	local build_dir="${git_dir}/build"
+
+	# Determine default branch
+	local default_branch
+	default_branch="$(git -C "$git_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
+	if [[ "$default_branch" == "" ]]; then
+		echo "Failed to determine default branch for '${remote}'." >&2
+		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+	fi
+
+	# Determine subdir suffix
+	local suffix=""
+	if [[ "$from_rev" != "default" ]]; then
+		if git -C "$git_dir" show-ref --verify --quiet "refs/heads/${from_rev}"; then
+			suffix="${from_rev}_"
+		elif git -C "$git_dir" show-ref --verify --quiet "refs/tags/${from_rev}"; then
+			suffix="${from_rev}_"
+		elif git -C "$git_dir" rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null; then
+			local commit_hash
+			commit_hash="$(git -C "$git_dir" rev-parse --short "${from_rev}^{commit}")"
+			suffix="${commit_hash}_"
+		else
+			echo "Git revision '${from_rev}' not found in ${remote}." >&2
+			exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+		fi
+	fi
+
+	if [[ "$debug_version" == "true" ]]; then
+		build_dir="${build_dir}/${suffix}debug"
+	else
+		build_dir="${build_dir}/${suffix}release"
+	fi
+
+	if [[ ! -d "$build_dir" ]]; then
+		echo "Build folder not found: ${build_dir}" >&2
+		echo "Try running: c3vm install --from-source ..." >&2
+		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+	fi
+
+	enable_compiler_symlink "$build_dir"
+}
+
+function c3vm_enable() {
+	if [[ "$from_source" == "true" ]]; then
+		enable_from_source
+	else
+		enable_prebuilt
+	fi
+}
+
 case "$subcommand" in
 	status)
 		c3vm_status
@@ -1077,6 +1165,9 @@ case "$subcommand" in
 		;;
 	install)
 		c3vm_install
+		;;
+	enable)
+		c3vm_enable
 		;;
 	*)
 		echo "'${subcommand}' not implemented yet"
