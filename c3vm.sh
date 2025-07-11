@@ -59,7 +59,7 @@ It can grab releases from Github or compile from scratch.
                             (Default 16)
 
  - Enable command:
-    --debug                 Enable the debug version
+    Same flags as 'install', except for '--dont-enable' or '--keep-archive'
 
  - Update command:
     Same flags as 'install', but '--checkout' only accepts branches.
@@ -127,6 +127,8 @@ EXIT_INSTALL_UNKNOWN_REV=41
 EXIT_INSTALL_BUILD_FAILURE=41
 
 EXIT_ENABLE_BROKEN_SYMLINK=50
+EXIT_ENABLE_NO_VERSION_FOUND=51
+EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND=51
 
 EXIT_ADDLOCAL_NONEXISTING_PATH=60
 EXIT_ADDLOCAL_INVALID_NAME=61
@@ -210,44 +212,28 @@ quiet="false"
 
 subcommand=""
 
-install_version="latest"
-enable_version=""
-remove_version=""
-use_version=""
-
-list_filter=""
 
 # Global options
+version=""
 remote="c3lang/c3c"
-
-install_keep_archive="false"
-install_debug="false"
-enable_after_install="true"
-install_local=""
-install_from_source="false"
-install_from_rev="default"
-
+local_name=""
+from_source="false"
+from_rev="default"
+keep_archive="false"
+debug_version="false"
+enable_after="true"
 jobcount="16"
 
-enable_debug=""
+# List options
+list_filter=""
 
 add_local_path=""
 add_local_name=""
 
-update_keep_archive="false"
-update_debug="false"
-enable_after_update="true"
-update_local=""
-update_from_source="false"
-update_from_branch=""
-
-remove_version=""
 remove_interactive="false"
 remove_regex_match="true"
 remove_inactive="false"
 
-use_version=""
-use_debug="false"
 use_session="false"
 use_compiler_args=()
 
@@ -391,52 +377,37 @@ while [[ "$1" ]]; do case $1 in
 # Install && update flags
 	--dont-enable)
 		check_flag_for_subcommand "$1" "install" "update"
-		case "$subcommand" in
-			install) enable_after_install="false" ;;
-			update)  enable_after_update="false"  ;;
-		esac
+		enable_after="false"
 		;;
 	--keep-archive)
 		check_flag_for_subcommand "$1" "install" "update"
-		case "$subcommand" in
-			install) install_keep_archive="true" ;;
-			update)  update_keep_archive="true"  ;;
-		esac
+		keep_archive="true"
 		;;
 
 	--from-source)
-		check_flag_for_subcommand "$1" "install" "update"
-		case "$subcommand" in
-			install) install_from_source="true" ;;
-			update)  update_from_source="true"  ;;
-		esac
+		check_flag_for_subcommand "$1" "install" "update" "enable"
+		from_source="true"
 		;;
 	--checkout)
-		check_flag_for_subcommand "$1" "install" "update"
+		check_flag_for_subcommand "$1" "install" "update" "enable"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <rev> after --checkout" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		case "$subcommand" in
-			install) install_from_rev="$1"  ;;
-			update) update_from_branch="$1" ;;
-		esac
+		from_rev="$1"
 		;;
 	--local)
-		check_flag_for_subcommand "$1" "install" "update"
+		check_flag_for_subcommand "$1" "install" "update" "enable"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <name> after --local" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		shift
-		case "$subcommand" in
-			install) install_local="$1" ;;
-			update)  update_local="$1"  ;;
-		esac
+		local_name="$1"
 		;;
 	--remote)
-		check_flag_for_subcommand "$1" "install" "update"
+		check_flag_for_subcommand "$1" "install" "update" "enable"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -492,10 +463,7 @@ while [[ "$1" ]]; do case $1 in
 # Multi-command flags
 	--debug)
 		case "$subcommand" in
-			install) install_debug="true" ;;
-			enable)  enable_debug="true"  ;;
-			update)  update_debug="true"  ;;
-			use)     use_debug="true"     ;;
+			install | enable | update | use) debug_version="true" ;;
 			"")
 				echo "'--debug' is only supported for subcommands ('install', 'enable', 'update', 'use')." >&2
 				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
@@ -511,25 +479,17 @@ while [[ "$1" ]]; do case $1 in
 	# or just something wrong that we can error on
 	*)
 		case "$subcommand" in
-			status | list | version)
+            status | list)
 				echo "Received unknown argument for '${subcommand}': '${1}'" >&2
 				exit "$EXIT_UNKNOWN_ARG"
 				;;
-			install)
-				if [[ "$install_version" != "latest" && "$1" != "latest" ]]; then
-					echo "Version was already set to '${install_version}', cannot reset it to '${1}'" >&2
+			install | enable | use)
+				if [[ "$version" != "" ]]; then
+					echo "Version was already set to '${version}', cannot reset it to '${1}'" >&2
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
 				check_valid_version "$1"
-				install_version="${return_check_valid_version}"
-				;;
-			enable)
-				if [[ "$enable_version" != "" ]]; then
-					echo "Version was already set to '${install_version}', cannot reset it to '${1}'" >&2
-					exit "$EXIT_CONTRADICTING_FLAGS"
-				fi
-				check_valid_version "$1"
-				enable_version="${return_check_valid_version}"
+				version="${return_check_valid_version}"
 				;;
 			add-local)
 				if [[ "$add_local_name" != "" ]]; then
@@ -542,20 +502,12 @@ while [[ "$1" ]]; do case $1 in
 				fi
 				;;
 			remove)
-				if [[ "$remove_version" != "" ]]; then
-					echo "Version was already set to '${remove_version}', cannot reset it to '${1}'" >&2
+				# Seperate case because no version validity check needed
+				if [[ "$version" != "" ]]; then
+					echo "Version was already set to '${version}', cannot reset it to '${1}'" >&2
 					exit "$EXIT_CONTRADICTING_FLAGS"
 				fi
-				# No validity-check because this can be a regex
-				remove_version="$1"
-				;;
-			use)
-				if [[ "$use_version" != "" ]]; then
-					echo "Version was already set to '${use_version}', cannot reset it to '${1}'" >&2
-					exit "$EXIT_CONTRADICTING_FLAGS"
-				fi
-				check_valid_version "$1"
-				use_version="${return_check_valid_version}"
+				version="$1"
 				;;
 			*)
 				echo "Received unknown argument: '${1}'"
@@ -572,7 +524,7 @@ esac; shift; done
 # F.e.'c3vm remove --interactive v0.6*' is valid
 case "$subcommand" in
 	enable | use)
-		if [[ "$enable_version" == "" ]]; then
+		if [[ "$from_source" != "true" && "$version" == "" ]]; then
 			echo "Expected version behind '${subcommand}' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
@@ -592,27 +544,24 @@ case "$subcommand" in
 		fi
 		;;
 	remove)
-		if [[ "$remove_version" == "" ]]; then
+		if [[ "$version" == "" ]]; then
 			echo "Expected version behind 'remove' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		if [[ "$remove_regex_match" == "false" ]]; then
 			# Catch the echo in a variable to not accidently print to stdout
-			check_valid_version "$remove_version"
+			check_valid_version "$version"
+			version="$return_check_valid_version"
 		fi
 		;;
 esac
 
 function log_info() {
-	if [[ "$quiet" != "true" ]]; then
-		echo "$1"
-	fi
+	[[ "$quiet" != "true" ]] && echo "$1"
 }
 
 function log_verbose() {
-	if [[ "$verbose" == "true" ]]; then
-		echo "$1"
-	fi
+	[[ "$verbose" == "true" ]] && echo "$1"
 }
 
 # Here follow the implementations of each subcommand.
