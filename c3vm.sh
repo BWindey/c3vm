@@ -911,6 +911,86 @@ function ensure_remote_git_directory() {
 	fi
 }
 
+# This function assumes you're already inside the git repository, and will
+# return inside the created build-folder from where 'cmake ../..' can be executed
+function c3vm_install_setup_build_folders() {
+	local git_dir="$1"
+
+	# Determine build-directory, f.e. build/v0.7.2_debug/
+	local build_dir="${git_dir}/build"
+
+	# Get default branch
+	local remotes
+	remotes="$(git remote show -n)"
+	if [[ "$remotes" != *"origin"* ]]; then
+		echo "Could not find remote 'origin', which is required to make this work." >&2
+		exit "$EXIT_INSTALL_NO_VALID_REMOTE"
+	fi
+	local default_branch
+	default_branch="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
+	if [[ "$default_branch" == "" ]]; then
+		echo "Did not find a default branch." >&2
+		exit "$EXIT_INSTALL_NO_VALID_REMOTE"
+	fi
+
+	# If not default branch, determine what to add before release/debug
+	if [[ "$install_from_rev" != "default" ]]; then
+		# Check if it's a branch
+		if git show-ref --verify --quiet "refs/heads/${install_from_rev}"; then
+			build_dir="${build_dir}/${install_from_rev}_"
+
+		# Check if it's a tag
+		elif git show-ref --verify --quiet "refs/tags/${install_from_rev}"; then
+			build_dir="${build_dir}/${install_from_rev}_"
+
+		# Check if it's a valid commit (full or short hash)
+		elif git rev-parse --quiet --verify "${install_from_rev}^{commit}" >/dev/null; then
+			local commit_hash
+			commit_hash="$(git rev-parse --quiet --verify "${install_from_rev}^{commit}" >/dev/null)"
+			build_dir="${build_dir}/${commit_hash::7}"
+
+		else
+			echo "Git does not know '${install_from_rev}'." >&2
+			exit "$EXIT_INSTALL_UNKNOWN_REV"
+		fi
+	else
+		build_dir="${build_dir}/"
+	fi
+
+	if [[ "$install_debug" == "true" ]]; then
+		build_dir="${build_dir}debug"
+	else
+		build_dir="${build_dir}release"
+	fi
+
+	if ! [[ -e "$build_dir" ]]; then
+		if ! mkdir -p "$build_dir"; then
+			echo "Failed to create '${build_dir}' to build compiler in." >&2
+			exit "$EXIT_INSTALL_BUILD_DIR"
+		fi
+	fi
+	if ! [[ -d "$build_dir" ]]; then
+		echo "'${build_dir}' is not a directory, but is needed to build in."
+		echo -n "Permission to remove it? [y/n] "
+		read -r ans
+		if [[ "$ans" == y ]]; then
+			if ! rm "$build_dir"; then
+				echo "Failed to remove ${build_dir}." >&2
+				exit "$EXIT_INSTALL_BUILD_DIR"
+			fi
+		else
+			echo "Cannot continue without '${build_dir}' available." >&2
+			exit "$EXIT_INSTALL_BUILD_DIR"
+		fi
+	fi
+
+	# Enter build directory
+	if ! cd "${build_dir}"; then
+		echo "Failed to enter build-directory '${build_dir}'." >&2
+		exit "$EXIT_INSTALL_BUILD_DIR"
+	fi
+}
+
 function c3vm_install_from_source() {
 	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
 	ensure_remote_git_directory "$git_dir"
