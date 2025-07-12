@@ -5,6 +5,7 @@
 > [!WARNING]
 > `c3vm` is still in beta, only `status`, `enable` and `install` are implemented.
 > Feel free to use it, to report bugs, to share ideas.
+> Installation instructions will improve when this script is considered finished.
 
 There is a manpage, feel free to search the internet on how to install it.
 
@@ -38,11 +39,14 @@ explain it to you.
 
 
 ## Planned/ideas:
-A 'snapshot' subcommand for installing from-source that will store the
-currently enabled compiler under an alias (probably git/snapshots/<alias>/)
-that allows you to quickly snapshot the version, update and compare
-behaviour.
+- A 'snapshot' subcommand for installing from-source that will store the
+    currently enabled compiler under an alias (probably git/snapshots/<alias>/)
+    that allows you to quickly snapshot the version, update and compare
+    behaviour.
 
-Some kind of alias to create like 'c3c_debug' or whatever as available
-executable. Not trivial as the script needs to know which aliasses
-are from c3vm. Might not be implemented ever.
+- Some kind of alias to create like 'c3c_debug' or whatever as available
+    executable. Not trivial as the script needs to know which aliasses
+    are from c3vm. Might not be implemented ever.
+
+- A bash completion script for this bash script. Because the greatest ally
+    for your commandline adventures is good old `<tab><tab>`.
