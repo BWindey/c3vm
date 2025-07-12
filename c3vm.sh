@@ -1079,21 +1079,21 @@ function enable_prebuilt() {
 
 	match_count="${#matches[@]}"
 
-		case "$match_count" in
-			0)
-				echo "No compilers installed that match ${to_search}" >&2
-				exit "$EXIT_ENABLE_NO_VERSION_FOUND"
-				;;
-			1)
-				enable_compiler_symlink "${matches[0]}"
-				exit "$EXIT_OK"
-				;;
-			*)
-				echo "Found multiple matches:"
-				printf '%s\n' "${matches[@]}"
-				echo "Run command again with one of those."
-				exit "$EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND"
-				;;
+	case "$match_count" in
+		0)
+			echo "No compilers installed that match ${to_search}" >&2
+			exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+			;;
+		1)
+			enable_compiler_symlink "${matches[0]}"
+			exit "$EXIT_OK"
+			;;
+		*)
+			echo "Found multiple matches:"
+			printf '%s\n' "${matches[@]}"
+			echo "Run command again with one of those."
+			exit "$EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND"
+			;;
 		esac
 	}
 
