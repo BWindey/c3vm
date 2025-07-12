@@ -909,15 +909,13 @@ function ensure_remote_git_directory() {
 	fi
 }
 
-# This function assumes you're already inside the git repository, and will
-# return inside the created build-folder from where 'cmake ../..' can be executed
-function install_setup_build_folders() {
+return_determine_git_build_dir=""
+function determine_git_build_dir() {
 	local git_dir="$1"
 
-	# Determine build-directory, f.e. build/v0.7.2_debug/
 	local build_dir="${git_dir}/build"
 
-	# Get default branch
+	# Check if 'origin' is
 	local remotes
 	remotes="$(git remote show -n)"
 	if [[ "$remotes" != *"origin"* ]]; then
@@ -960,6 +958,17 @@ function install_setup_build_folders() {
 	else
 		build_dir="${build_dir}release"
 	fi
+
+	return_determine_git_build_dir="${build_dir}"
+}
+
+# This function assumes you're already inside the git repository, and will
+# return inside the created build-folder from where 'cmake ../..' can be executed
+function install_setup_build_folders() {
+	local git_dir="$1"
+
+	determine_git_build_dir "$git_dir"
+	local build_dir="${return_determine_git_build_dir}"
 
 	if ! [[ -e "$build_dir" ]]; then
 		if ! mkdir -p "$build_dir"; then
@@ -1106,38 +1115,8 @@ function enable_from_source() {
 		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
 	fi
 
-	local build_dir="${git_dir}/build"
-
-	# Determine default branch
-	local default_branch
-	default_branch="$(git -C "$git_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
-	if [[ "$default_branch" == "" ]]; then
-		echo "Failed to determine default branch for '${remote}'." >&2
-		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
-	fi
-
-	# Determine subdir suffix
-	local suffix=""
-	if [[ "$from_rev" != "default" ]]; then
-		if git -C "$git_dir" show-ref --verify --quiet "refs/heads/${from_rev}"; then
-			suffix="${from_rev}_"
-		elif git -C "$git_dir" show-ref --verify --quiet "refs/tags/${from_rev}"; then
-			suffix="${from_rev}_"
-		elif git -C "$git_dir" rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null; then
-			local commit_hash
-			commit_hash="$(git -C "$git_dir" rev-parse --short "${from_rev}^{commit}")"
-			suffix="${commit_hash}_"
-		else
-			echo "Git revision '${from_rev}' not found in ${remote}." >&2
-			exit "$EXIT_ENABLE_NO_VERSION_FOUND"
-		fi
-	fi
-
-	if [[ "$debug_version" == "true" ]]; then
-		build_dir="${build_dir}/${suffix}debug"
-	else
-		build_dir="${build_dir}/${suffix}release"
-	fi
+	determine_git_build_dir "$git_dir"
+	local build_dir="${return_determine_git_build_dir}"
 
 	if [[ ! -d "$build_dir" ]]; then
 		echo "Build folder not found: ${build_dir}" >&2
