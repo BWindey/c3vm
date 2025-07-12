@@ -668,7 +668,7 @@ function c3vm_list() {
 }
 
 function determine_download_release() {
-	if [[ "$version" == "latest" ]]; then
+	if [[ "$version" == "" ]]; then
 		# Get available versions and take second in list
 		get_available_versions | sed -n '2P'
 	else
@@ -767,12 +767,13 @@ function enable_compiler_symlink() {
 }
 
 function download_known_release() {
-	local version
-	version="$(determine_download_release)"
+	local l_version # Local version
+	l_version="$(determine_download_release)"
+	echo "Version: $version"
 
 	# Determine output directory
 	local output_dir="${dir_compilers}/prebuilt"
-	case "${version}" in
+	case "${l_version}" in
 		latest-prerelease)
 			output_dir="${output_dir}/prereleases"
 			local current_date
@@ -780,10 +781,10 @@ function download_known_release() {
 			output_dir="${output_dir}/latest-prerelease_${current_date}"
 			;;
 		v*)
-			output_dir="${output_dir}/releases/${version}"
+			output_dir="${output_dir}/releases/${l_version}"
 			;;
 		*)
-			echo "Encountered unexpected error: did not recognize version '${version}'" >&2
+			echo "Encountered unexpected error: did not recognize version '${l_version}'" >&2
 			exit "$EXIT_INSTALL_UNKNOWN_VERSION"
 			;;
 	esac
@@ -817,7 +818,7 @@ function download_known_release() {
 	fi
 
 	# Download the file
-	local url="https://github.com/${remote}/releases/download/${version}/${asset_name}"
+	local url="https://github.com/${remote}/releases/download/${l_version}/${asset_name}"
 
 	[[ "$quiet" != "true" ]] && echo "Downloading ${url}..."
 	curl --progress-bar -L -o "${output_dir}/${asset_name}" "$url"
