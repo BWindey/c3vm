@@ -1138,6 +1138,58 @@ function c3vm_enable() {
 	fi
 }
 
+function update_from_source() {
+	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+
+	if [[ ! -d "$git_dir" || ! -d "${git_dir}/.git" ]]; then
+		echo "Git repository not found in '${git_dir}'." >&2
+		echo "Try running: c3vm install --from-source ..." >&2
+		exit "$EXIT_UPDATE_NO_VERSION_FOUND"
+	fi
+
+	determine_git_build_dir "$git_dir"
+	local build_dir="${return_determine_git_build_dir}"
+
+	if [[ ! -d "$build_dir" ]]; then
+		echo "Build folder not found: ${build_dir}" >&2
+		echo "Try running: c3vm install --from-source ..." >&2
+		exit "$EXIT_UPDATE_NO_VERSION_FOUND"
+	fi
+
+	local answer
+	answer="$(git -C "${git_dir}" pull 2>/dev/null)"
+	if [[ "$answer" != "Already up to date." ]]; then
+		# Subshell so that 'cd' does not affect us
+		(
+			if ! cd "$build_dir"; then
+				echo "Failed to enter build folder to rebuild (${build_dir})" >&2
+				exit "$EXIT_UPDATE_BUILD_DIR"
+			fi
+
+			actually_build_from_source
+		)
+		local subshell_exit="$?"
+		if [[ "$subshell_exit" -ne 0 ]]; then
+			exit "$subshell_exit"
+		fi
+	else
+		echo "Already up to date."
+	fi
+
+	if [[ "$enable_after" == "true" ]]; then
+		enable_compiler_symlink "$build_dir"
+	fi
+}
+
+function c3vm_update() {
+	if [[ "$from_source" == "true" ]]; then
+		update_from_source
+	else
+		# TODO:
+		echo "TODO"
+	fi
+}
+
 case "$subcommand" in
 	status)
 		c3vm_status
@@ -1150,6 +1202,9 @@ case "$subcommand" in
 		;;
 	enable)
 		c3vm_enable
+		;;
+	update)
+		c3vm_update
 		;;
 	*)
 		echo "'${subcommand}' not implemented yet"
