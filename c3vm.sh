@@ -997,6 +997,25 @@ function install_setup_build_folders() {
 	fi
 }
 
+# This function assumes you're inside the build directory
+function actually_build_from_source() {
+	local cmake_build_type="Release"
+
+	if [[ "$debug_version" == "true" ]]; then
+		cmake_build_type="Debug"
+	fi
+
+	if ! cmake -DCMAKE_BUILD_TYPE="$cmake_build_type" ../..; then
+		echo "Failed to call CMake" >&2
+		exit "$EXIT_INSTALL_BUILD_FAILURE"
+	fi
+
+	if ! make -j "$jobcount"; then
+		echo "Failed to execute make" >&2
+		exit "$EXIT_INSTALL_BUILD_FAILURE"
+	fi
+}
+
 function install_from_source() {
 	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
 	ensure_remote_git_directory "$git_dir"
@@ -1046,22 +1065,7 @@ function install_from_source() {
 
 	install_setup_build_folders "${git_dir}"
 
-	if [[ "$debug_version" == "true" ]]; then
-		if ! cmake -DCMAKE_BUILD_TYPE=Debug ../..; then
-			echo "Failed to call CMake" >&2
-			exit "$EXIT_INSTALL_BUILD_FAILURE"
-		fi
-	else
-		if ! cmake -DCMAKE_BUILD_TYPE=Release ../..; then
-			echo "Failed to call CMake" >&2
-			exit "$EXIT_INSTALL_BUILD_FAILURE"
-		fi
-	fi
-
-	if ! make -j "$jobcount"; then
-		echo "Failed to execute make" >&2
-		exit "$EXIT_INSTALL_BUILD_FAILURE"
-	fi
+	actually_build_from_source
 
 	enable_compiler_symlink "$(pwd)"
 
