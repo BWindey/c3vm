@@ -883,16 +883,9 @@ function ensure_remote_git_directory() {
 
 		else
 			# Check if it the git-directory is the requested remote
-			local current_pwd
-			current_pwd="$(pwd)"
-
-			if ! cd "$git_dir"; then
-				echo "Failed to enter '${git_dir}' to check it"
-				exit "$EXIT_INSTALL_GIT_DIR"
-			fi
 			local current_remote_link
 			current_remote_link="$(
-				git remote -v 2>/dev/null |
+				git -C "$git_dir" remote -v 2>/dev/null |
 					grep -F "fetch" |
 					tr '\t' ' ' |
 					cut -d ' ' -f 2
@@ -908,7 +901,6 @@ function ensure_remote_git_directory() {
 					exit "$EXIT_INSTALL_UNRECOGNIZED_REMOTE"
 			esac
 
-			cd "$current_pwd" || exit
 			return_ensure_remote_git_directory="false" # git repo already exists
 		fi
 	else
@@ -924,13 +916,13 @@ function determine_git_build_dir() {
 
 	# Check if 'origin' is
 	local remotes
-	remotes="$(git remote show -n)"
+	remotes="$(git -C "$git_dir" remote show -n)"
 	if [[ "$remotes" != *"origin"* ]]; then
 		echo "Could not find remote 'origin', which is required to make this work." >&2
 		exit "$EXIT_INSTALL_NO_VALID_REMOTE"
 	fi
 	local default_branch
-	default_branch="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
+	default_branch="$(git -C "$git_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
 	if [[ "$default_branch" == "" ]]; then
 		echo "Did not find a default branch." >&2
 		exit "$EXIT_INSTALL_NO_VALID_REMOTE"
@@ -939,17 +931,17 @@ function determine_git_build_dir() {
 	# If not default branch, determine what to add before release/debug
 	if [[ "$from_rev" != "default" ]]; then
 		# Check if it's a branch
-		if git show-ref --verify --quiet "refs/heads/${from_rev}"; then
+		if git -C "$git_dir" show-ref --verify --quiet "refs/heads/${from_rev}"; then
 			build_dir="${build_dir}/${from_rev}_"
 
 		# Check if it's a tag
-		elif git show-ref --verify --quiet "refs/tags/${from_rev}"; then
+		elif git -C "$git_dir" show-ref --verify --quiet "refs/tags/${from_rev}"; then
 			build_dir="${build_dir}/${from_rev}_"
 
 		# Check if it's a valid commit (full or short hash)
-		elif git rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null; then
+		elif git -C "$git_dir" rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null; then
 			local commit_hash
-			commit_hash="$(git rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null)"
+			commit_hash="$(git -C "$git_dir" rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null)"
 			build_dir="${build_dir}/${commit_hash::7}"
 
 		else
