@@ -573,6 +573,29 @@ function log_verbose() {
 # Here follow the implementations of each subcommand.
 # They assume that argument-parsing happened correctly, and will use the
 # global variables.
+#
+# NOTE:
+# 	This function is the one that does the actual building.
+# 	If you need to change something for your platform, then change it here.
+# 	This function gets called from `<remote_dir>/build/<target>/`
+function actually_build_from_source() {
+	local cmake_build_type="Release"
+
+	if [[ "$debug_version" == "true" ]]; then
+		cmake_build_type="Debug"
+	fi
+
+	if ! cmake -DCMAKE_BUILD_TYPE="$cmake_build_type" ../..; then
+		echo "Failed to call CMake" >&2
+		exit "$EXIT_INSTALL_BUILD_FAILURE"
+	fi
+
+	if ! make -j "$jobcount"; then
+		echo "Failed to execute make" >&2
+		exit "$EXIT_INSTALL_BUILD_FAILURE"
+	fi
+}
+
 
 function c3vm_status() {
 	local c3c_path
@@ -959,6 +982,11 @@ function ensure_remote_git_directory() {
 		fi
 	else
 		mkdir -p "$git_dir"
+		echo "NOTE: this could be the first time you're building from source with c3vm."
+		echo "      If something goes wrong, please look at https://github.com/c3lang/c3c/?tab=readme-ov-file#compiling"
+		echo "      for your platforms instructions, and modify the function 'actually_build_from_source'"
+		echo "      accordingly. (Arch Linux is known to require modification.)"
+		echo "      The function can be found just below this scripts argument parsing, around line 580."
 	fi
 }
 
@@ -1048,25 +1076,6 @@ function install_setup_build_folders() {
 	if ! cd "${build_dir}"; then
 		echo "Failed to enter build-directory '${build_dir}'." >&2
 		exit "$EXIT_INSTALL_BUILD_DIR"
-	fi
-}
-
-# This function assumes you're inside the build directory
-function actually_build_from_source() {
-	local cmake_build_type="Release"
-
-	if [[ "$debug_version" == "true" ]]; then
-		cmake_build_type="Debug"
-	fi
-
-	if ! cmake -DCMAKE_BUILD_TYPE="$cmake_build_type" ../..; then
-		echo "Failed to call CMake" >&2
-		exit "$EXIT_INSTALL_BUILD_FAILURE"
-	fi
-
-	if ! make -j "$jobcount"; then
-		echo "Failed to execute make" >&2
-		exit "$EXIT_INSTALL_BUILD_FAILURE"
 	fi
 }
 
