@@ -113,7 +113,7 @@ EXIT_INVALID_VERSION=17
 EXIT_STATUS_UNKNOWN_TYPE=20
 
 # Reserved for list errors
-# EXIT_LIST_ERRORS=30-39
+EXIT_LIST_WRONG_TREE=30
 
 EXIT_INSTALL_NO_DIR=40
 EXIT_INSTALL_UNKNOWN_VERSION=41
@@ -647,8 +647,62 @@ function c3vm_status() {
 }
 
 function c3vm_list_installed() {
-	# TODO: implement
-	echo "TODO"
+	tree -L 2 --noreport "${dir_compilers}/prebuilt" |
+		sed '1s/^.*$/Prebuilt:/'
+	echo ''
+
+	# Sadly the `git/` folder is a loooot more work, as `tree` does not provide
+	# a neat way to filter and manipulate the output like we want.
+	# TODO: locals
+
+	declare -A remote_targets
+
+	# Gather all remotes with their build-targets
+	for remote_path in "${dir_compilers}/git/remote/"*; do
+		remote_name="$(basename "$remote_path")"
+		build_dir="${remote_path}/build"
+
+		# Skip remotes without build/ directory
+		if [[ ! -d "$build_dir" ]]; then
+			echo "Remote '$remote_name' has no 'build/' folder!" >&2
+			exit "$EXIT_LIST_WRONG_TREE"
+		fi
+
+		targets=()
+		for target in "$build_dir"/*; do
+			[[ -d "$target" ]] && targets+=("$(basename "$target")")
+		done
+
+		if [[ "${#targets[@]}" -eq 0 ]]; then
+			echo "Remote '$remote_name' has empty 'build/' folder!" >&2
+			continue
+		fi
+
+		remote_targets["$remote_name"]="${targets[*]}"
+	done
+
+	# Print it!
+	echo "From source:"
+
+	# Get sorted list of remotes
+	readarray -t remotes < <(printf '%s\n' "${!remote_targets[@]}" | sort)
+
+	for r_index in "${!remotes[@]}"; do
+		remote="${remotes[$r_index]}"
+		prefix_1="└──"
+		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="├──"
+		echo "${prefix_1} ${remote}"
+
+		prefix_1="    "
+		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="│   "
+
+		IFS=' ' read -r -a targets <<< "${remote_targets[$remote]}"
+		for t_index in "${!targets[@]}"; do
+			prefix="└──"
+			[[ $t_index -lt $((${#targets[@]} - 1)) ]] && prefix="├──"
+			echo "${prefix_1}${prefix} ${targets[$t_index]}"
+		done
+	done
 }
 
 function get_available_versions() {
@@ -664,7 +718,7 @@ function c3vm_list_available() {
 
 function c3vm_list() {
 	case "$list_filter" in
-		installed)
+		"" | installed)
 			c3vm_list_installed
 			;;
 		available)
