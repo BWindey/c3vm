@@ -687,8 +687,8 @@ function c3vm_list_installed() {
 
 		# Skip remotes without build/ directory
 		if [[ ! -d "$build_dir" ]]; then
-			echo "Remote '$remote_name' has no 'build/' folder!" >&2
-			exit "$EXIT_LIST_WRONG_TREE"
+			remote_targets["$remote_name"]="__no_targets__"
+			continue
 		fi
 
 		targets=()
