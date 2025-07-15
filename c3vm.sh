@@ -852,7 +852,6 @@ function enable_compiler_symlink() {
 function download_known_release() {
 	local l_version # Local version
 	l_version="$(determine_download_release)"
-	echo "Version: $version"
 
 	# Determine output directory
 	local output_dir="${dir_compilers}/prebuilt"
@@ -931,7 +930,9 @@ function download_known_release() {
 		rm "${output_dir}/${asset_name}"
 	fi
 
-	enable_compiler_symlink "$output_dir"
+	if [[ "$enable_after" == "true" ]]; then
+		enable_compiler_symlink "$output_dir"
+	fi
 }
 
 # Signal if we need to git clone first or if it already exists
@@ -1130,7 +1131,9 @@ function install_from_source() {
 
 	actually_build_from_source
 
-	enable_compiler_symlink "$(pwd)"
+	if [[ "$enable_after" ]]; then
+		enable_compiler_symlink "$(pwd)"
+	fi
 
 	cd "$current_pwd" || exit
 }
