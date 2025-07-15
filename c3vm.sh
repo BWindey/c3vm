@@ -1251,8 +1251,7 @@ function c3vm_update() {
 	if [[ "$from_source" == "true" ]]; then
 		update_from_source
 	else
-		# TODO:
-		echo "TODO"
+		download_known_release
 	fi
 }
 
