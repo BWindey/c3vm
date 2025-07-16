@@ -595,6 +595,12 @@ function log_verbose() {
 # They assume that argument-parsing happened correctly, and will use the
 # global variables.
 #
+
+function is_arch_distro() {
+	grep --quiet --ignore-case '^ID=["'\'']\?arch["'\'']\?$' /etc/os-release
+	return "$?"
+}
+
 # NOTE:
 # 	This function is the one that does the actual building.
 # 	If you need to change something for your platform, then change it here.
@@ -610,10 +616,15 @@ function actually_build_from_source() {
 	log_info "Building inside '${output_dir}'..."
 
 	local cmake_flags=(
-		-DCMAKE_BUILD_TYPE="${cmake_build_type}"
+		-D CMAKE_BUILD_TYPE="${cmake_build_type}"
 		-S "${source_dir}"
 		-B "${output_dir}"
 	)
+
+	if is_arch_distro; then
+		echo "What are you doing on Arch??? Get a real distro, like Void Linux."
+		cmake_flags+=( -D C3_LINK_DYNAMIC=ON )
+	fi
 
 	local make_flags=(
 		--jobs="${jobcount}"
