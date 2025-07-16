@@ -113,7 +113,7 @@ EXIT_INVALID_VERSION=17
 EXIT_STATUS_UNKNOWN_TYPE=20
 
 # Reserved for list errors
-EXIT_LIST_WRONG_TREE=30
+# EXIT_LIST_=30-39
 
 EXIT_INSTALL_NO_DIR=40
 EXIT_INSTALL_UNKNOWN_VERSION=41
@@ -360,6 +360,21 @@ while [[ "$1" ]]; do case $1 in
 	use)
 		check_subcommand_already_in_use "use"
 		subcommand="use"
+		;;
+	upgrade)
+		echo "Why does @FoxKiana nag so much?"
+		sleep 1
+		echo "I don't think I'll understand..."
+		sleep 1
+		echo "."
+		sleep 1
+		echo "Sigh..."
+		sleep 1
+		echo "Ok then..."
+		sleep 1
+		c3vm_directory="$(realpath "$0" | xargs dirname)"
+		git -C "$c3vm_directory" pull
+		exit
 		;;
 
 # List flags
