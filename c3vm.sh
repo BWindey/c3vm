@@ -22,7 +22,7 @@ It can grab releases from Github or compile from scratch.
                             build-system. The name will be the name of the
                             symlink, and used for 'update'.
     - update                Update the current active version.
-    - remove <version>      Remove specified version (regex match with grep)
+    - remove <version>      Remove specified version (substring match)
     - use <version> [-- <args>]
                             Use the specified version for a single command
                             and pass the <args> to the compiler
@@ -66,7 +66,7 @@ It can grab releases from Github or compile from scratch.
 
  - Remove command:
     --interactive, -I       Prompt before removing a version
-    --no-regex, -F          Interpret <version> as fixed-string instead of
+    --fixed-match, -F       Interpret <version> as fixed-string instead of
                             regex pattern
     --inactive              Remove all installed compilers except for the
                             currently enabled compiler
@@ -1268,6 +1268,41 @@ function c3vm_update() {
 	fi
 }
 
+function c3vm_remove() {
+	local found_match="false"
+
+	local dir_releases="${dir_compilers}/prebuilt/releases/"
+	local dir_prerels="${dir_compilers}/prebuilt/prereleases/"
+
+	local release
+
+	for release_dir in "${dir_releases}"* "${dir_prerels}"*; do
+		release="$(basename "$release_dir")"
+		if [[ "$release" != *"$version"* ]]; then
+			continue
+		elif [[ "$remove_regex_match" != "true" && "$release" != "$version" ]]; then
+			continue
+		fi
+
+		if [[ "$remove_interactive" == "true" ]]; then
+			echo -n "Remove version '$release'? [y/n] "
+			read -r ans
+			if [[ "$ans" != y ]]; then
+				log_info "Skipped '$release'."
+				continue
+			fi
+		fi
+		rm -r "$release_dir" && log_info "Removed '$release'."
+		found_match="true"
+	done
+
+	if [[ "$found_match" != "true" ]]; then
+		log_info "No matches found."
+	fi
+
+	# TODO: git directories? How finegrained?
+}
+
 case "$subcommand" in
 	status)
 		c3vm_status
@@ -1283,6 +1318,9 @@ case "$subcommand" in
 		;;
 	update)
 		c3vm_update
+		;;
+	remove)
+		c3vm_remove
 		;;
 	*)
 		echo "'${subcommand}' not implemented yet"
