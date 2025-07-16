@@ -50,3 +50,9 @@ explain it to you.
 
 - A bash completion script for this bash script. Because the greatest ally
     for your commandline adventures is good old `<tab><tab>`.
+
+
+## For @foxkiana
+I provided a `update_c3vm` script, as requested. It's seperate because I'm lazy.
+You can symlink it to `~/.local/bin/`, and maybe alias it or whatever you want.
+Again, it's your computer, go crazy!
