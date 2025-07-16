@@ -577,22 +577,54 @@ function log_verbose() {
 # NOTE:
 # 	This function is the one that does the actual building.
 # 	If you need to change something for your platform, then change it here.
-# 	This function gets called from `<remote_dir>/build/<target>/`
 function actually_build_from_source() {
+	local source_dir="$1"
+	local output_dir="$2"
 	local cmake_build_type="Release"
 
 	if [[ "$debug_version" == "true" ]]; then
 		cmake_build_type="Debug"
 	fi
 
-	if ! cmake -DCMAKE_BUILD_TYPE="$cmake_build_type" ../..; then
-		echo "Failed to call CMake" >&2
-		exit "$EXIT_INSTALL_BUILD_FAILURE"
+	log_info "Building inside '${output_dir}'..."
+
+	local cmake_flags=(
+		-DCMAKE_BUILD_TYPE="${cmake_build_type}"
+		-S "${source_dir}"
+		-B "${output_dir}"
+	)
+
+	local make_flags=(
+		--jobs="${jobcount}"
+		-C "${output_dir}"
+	)
+
+	if [[ "$verbose" != "true" ]]; then
+		cmake_flags+=( --log-level=ERROR )
+		make_flags+=( --quiet )
 	fi
 
-	if ! make -j "$jobcount"; then
-		echo "Failed to execute make" >&2
-		exit "$EXIT_INSTALL_BUILD_FAILURE"
+
+	if [[ "$quiet" == "true" ]]; then
+		if ! cmake "${cmake_flags[@]}" >/dev/null; then
+			echo "Failed to exectute 'cmake ${cmake_flags[*]}'" >&2
+			exit "$EXIT_INSTALL_BUILD_FAILURE"
+		fi
+
+		if ! make "${make_flags[@]}" >/dev/null; then
+			echo "Failed to execute 'make ${make_flags[*]}'" >&2
+			exit "$EXIT_INSTALL_BUILD_FAILURE"
+		fi
+	else
+		if ! cmake "${cmake_flags[@]}"; then
+			echo "Failed to call CMake" >&2
+			exit "$EXIT_INSTALL_BUILD_FAILURE"
+		fi
+
+		if ! make "${make_flags[@]}"; then
+			echo "Failed to execute make" >&2
+			exit "$EXIT_INSTALL_BUILD_FAILURE"
+		fi
 	fi
 }
 
@@ -1046,6 +1078,7 @@ function determine_git_build_dir() {
 
 # This function assumes you're already inside the git repository, and will
 # return inside the created build-folder from where 'cmake ../..' can be executed
+return_install_setup_build_folders=""
 function install_setup_build_folders() {
 	local git_dir="$1"
 
@@ -1074,18 +1107,12 @@ function install_setup_build_folders() {
 	fi
 
 	# Enter build directory
-	if ! cd "${build_dir}"; then
-		echo "Failed to enter build-directory '${build_dir}'." >&2
-		exit "$EXIT_INSTALL_BUILD_DIR"
-	fi
+	return_install_setup_build_folders="${build_dir}"
 }
 
 function install_from_source() {
 	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
 	ensure_remote_git_directory "$git_dir"
-
-	local current_pwd
-	current_pwd="$(pwd)"
 
 	if ! cd "$git_dir"; then
 		echo "Failed to enter '${git_dir}' to install '${version}' in it"
@@ -1109,13 +1136,13 @@ function install_from_source() {
 				;;
 		esac
 
-		if ! git clone "${clone_link}" . ; then
+		if ! git clone "${clone_link}" "${git_dir}" ; then
 			echo "Failed to clone '${clone_link}'" >&2
 			exit "$EXIT_INSTALL_CANT_CLONE"
 		fi
 	fi
 
-	if ! [[ -e "CMakeLists.txt" ]]; then
+	if ! [[ -e "${git_dir}/CMakeLists.txt" ]]; then
 		echo "Couldn't find CMakeLists.txt inide ${git_dir}, cannot build." >&2
 		exit "$EXIT_INSTALL_NO_CMAKE"
 	fi
@@ -1129,13 +1156,11 @@ function install_from_source() {
 
 	install_setup_build_folders "${git_dir}"
 
-	actually_build_from_source
+	actually_build_from_source "${git_dir}" "${return_install_setup_build_folders}"
 
 	if [[ "$enable_after" ]]; then
 		enable_compiler_symlink "$(pwd)"
 	fi
-
-	cd "$current_pwd" || exit
 }
 
 function c3vm_install() {
@@ -1225,19 +1250,7 @@ function update_from_source() {
 	local answer
 	answer="$(git -C "${git_dir}" pull 2>/dev/null)"
 	if [[ "$answer" != "Already up to date." ]]; then
-		# Subshell so that 'cd' does not affect us
-		(
-			if ! cd "$build_dir"; then
-				echo "Failed to enter build folder to rebuild (${build_dir})" >&2
-				exit "$EXIT_UPDATE_BUILD_DIR"
-			fi
-
-			actually_build_from_source
-		)
-		local subshell_exit="$?"
-		if [[ "$subshell_exit" -ne 0 ]]; then
-			exit "$subshell_exit"
-		fi
+		actually_build_from_source "${git_dir}" "${build_dir}"
 	else
 		echo "Already up to date."
 	fi
