@@ -373,7 +373,13 @@ while [[ "$1" ]]; do case $1 in
 		echo "Ok then..."
 		sleep 1
 		c3vm_directory="$(realpath "$0" | xargs dirname)"
-		git -C "$c3vm_directory" pull
+		c3vm_name="$(realpath "$0" | xargs basename)"
+		if [[ -d "${c3vm_directory}/.git/" ]]; then
+			git -C "$c3vm_directory" pull
+		else
+			url="https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm.sh"
+			curl --progress-bar -L -o "${c3vm_directory}/${c3vm_name}" "$url"
+		fi
 		exit
 		;;
 
