@@ -526,10 +526,19 @@ while [[ "$1" ]]; do case $1 in
 # Use flags
 	--session)
 		check_flag_for_subcommand "$1" "use"
+		if [[ "${#use_compiler_args[@]}" -gt 0 ]]; then
+			echo "Use '--session' without arguments after ' -- '" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
 		use_session="true"
 		;;
 	--)
 		check_flag_for_subcommand "$1" "use"
+		if [[ "$use_session" == "true" ]]; then
+			echo "Use '--session' without arguments after ' -- '" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
+		# Skip the '--' and process all remaining args
 		shift
 		while [[ "$1" ]]; do
 			use_compiler_args+=( "$1" )
@@ -1452,8 +1461,12 @@ function use_prebuilt() {
 		exit "$EXIT_USE_NO_EXECUTABLE_FOUND"
 	fi
 
-	local command=( "${executable_path}" "${use_compiler_args[@]}" )
-	"${command[@]}"
+	if [[ "$use_session" == "true" ]]; then
+		echo "export PATH=\"$(dirname "$executable_path"):\$PATH\""
+	else
+		local command=( "${executable_path}" "${use_compiler_args[@]}" )
+		"${command[@]}"
+	fi
 }
 
 function c3vm_use() {
