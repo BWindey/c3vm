@@ -70,6 +70,8 @@ It can grab releases from Github or compile from scratch.
                             regex pattern
     --inactive              Remove all installed compilers except for the
                             currently enabled compiler
+    --dry-run               Do everything and show everything except for actually
+                            removing.
 
  - Use command:
     --debug                 Use debug version
@@ -138,6 +140,8 @@ EXIT_ADDLOCAL_INVALID_NAME=71
 
 EXIT_UPDATE_NO_VERSION_FOUND=81
 EXIT_UPDATE_BUILD_DIR=82
+
+EXIT_REMOVE_FAILED_RM=90
 
 
 function ensure_directories() {
@@ -233,13 +237,17 @@ jobcount="16"
 # List options
 list_filter=""
 
+# All-local options
 add_local_path=""
 add_local_name=""
 
+# Remove options
 remove_interactive="false"
 remove_regex_match="true"
 remove_inactive="false"
+remove_dryrun="false"
 
+# Use options
 use_session="false"
 use_compiler_args=()
 
@@ -479,6 +487,10 @@ while [[ "$1" ]]; do case $1 in
 			exit "$EXIT_CONTRADICTING_FLAGS"
 		fi
 		remove_inactive="true"
+		;;
+	--dry-run)
+		check_flag_for_subcommand "$1" "remove"
+		remove_dryrun="true"
 		;;
 
 # Use flags
@@ -1310,6 +1322,29 @@ function c3vm_update() {
 	fi
 }
 
+function is_removeable_version() {
+	local release_dir="$1"
+	local release
+	release="$(basename "$release_dir")"
+
+	local current_version
+	current_version="$(which c3c 2>/dev/null | xargs readlink 2>/dev/null)"
+
+	if [[ "$remove_inactive" == "true" ]]; then
+		if [[ "$current_version" != "$release_dir"* ]]; then
+			return 0
+		else
+			return 1
+		fi
+	fi
+
+	if [[ "$release" != *"$version"* ]]; then
+		return 1
+	elif [[ "$remove_regex_match" != "true" && "$release" != "$version" ]]; then
+		return 1
+	fi
+}
+
 function c3vm_remove() {
 	local found_match="false"
 
@@ -1320,9 +1355,9 @@ function c3vm_remove() {
 
 	for release_dir in "${dir_releases}"* "${dir_prerels}"*; do
 		release="$(basename "$release_dir")"
-		if [[ "$release" != *"$version"* ]]; then
-			continue
-		elif [[ "$remove_regex_match" != "true" && "$release" != "$version" ]]; then
+		if [[ "$release" == "*" ]]; then continue; fi # Empty dir
+
+		if ! is_removeable_version "$release_dir"; then
 			continue
 		fi
 
@@ -1334,7 +1369,13 @@ function c3vm_remove() {
 				continue
 			fi
 		fi
-		rm -r "$release_dir" && log_info "Removed '$release'."
+		if [[ "$remove_dryrun" != "true" ]]; then
+			if ! rm -r "$release_dir"; then
+				echo "Failed to remove '${release_dir}'." >&2
+				exit "$EXIT_REMOVE_FAILED_RM"
+			fi
+		fi
+		log_info "Removed '$release'."
 		found_match="true"
 	done
 
