@@ -1435,27 +1435,14 @@ function c3vm_remove() {
 	# TODO: git directories? How finegrained?
 }
 
-function c3vm_use() {
-	local found_versions=()
-	readarray -d '' found_versions < \
-		<(find "${dir_compilers}/prebuilt/" -type d -name "${version}*" -print0)
+function use_prebuilt() {
+	determine_directory_prebuilt
+	local found_version="${return_determine_directory}"
 
-	case "${#found_versions[@]}" in
-		0)
-			echo "Found no installed version matching '${version}'" >&2
-			exit "$EXIT_USE_VERSION_NOT_FOUND"
-			;;
-		1) # Everything fine
-			;;
-		*)
-			echo "Found multiple versions matching '${version}'" >&2
-			echo "${found_versions[@]}" >&2
-			echo "Run again with exact match" >&2
-			exit "$EXIT_USE_MULTIPLE_VERSIONS_FOUND"
-			;;
-	esac
-
-	local found_version="${found_versions[0]}"
+	if ! [[ -d "$found_version" ]]; then
+		echo "Could not find installed version '${version}'." >&2
+		exit "$EXIT_USE_VERSION_NOT_FOUND"
+	fi
 
 	local executable_path
 	executable_path="$(find "${found_version}" -type f -executable -name "c3c")"
@@ -1467,6 +1454,10 @@ function c3vm_use() {
 
 	local command=( "${executable_path}" "${use_compiler_args[@]}" )
 	"${command[@]}"
+}
+
+function c3vm_use() {
+	use_prebuilt
 }
 
 case "$subcommand" in
