@@ -75,8 +75,8 @@ It can grab releases from Github or compile from scratch.
     --allow-current         Allow removing the current active version (default false).
 
  - Use command:
-    --session               Output the exports to switch current compiler
-                            version in your shell session.
+    --session               Prepends the requested compiler version to your '$PATH'
+                            so it takes precedence in your current shell session.
                             Should be used as `eval "$(c3vm use --session <version>)"`.
     For the rest, same flags as 'install', without '--dont-enable',
     '--keep-archive' '--jobs'.
