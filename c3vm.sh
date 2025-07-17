@@ -75,10 +75,11 @@ It can grab releases from Github or compile from scratch.
     --allow-current         Allow removing the current active version (default false).
 
  - Use command:
-    --debug                 Use debug version
     --session               Output the exports to switch current compiler
                             version in your shell session.
                             Should be used as `eval "$(c3vm use --session <version>)"`.
+    For the rest, same flags as 'install', without '--dont-enable',
+    '--keep-archive' '--jobs'.
 
  Extra info, like example uses, directory layout for storing compilers and
  exit codes of c3vm can be found in the manpage.
@@ -414,7 +415,7 @@ while [[ "$1" ]]; do case $1 in
 		list_filter="available"
 		;;
 
-# Install && update flags
+# Multi-subcommand flags (mainly 'install')
 	--dont-enable)
 		check_flag_for_subcommand "$1" "install" "update"
 		enable_after="false"
@@ -425,11 +426,11 @@ while [[ "$1" ]]; do case $1 in
 		;;
 
 	--from-source)
-		check_flag_for_subcommand "$1" "install" "update" "enable"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
 		from_source="true"
 		;;
 	--checkout)
-		check_flag_for_subcommand "$1" "install" "update" "enable"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <rev> after --checkout" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -438,7 +439,7 @@ while [[ "$1" ]]; do case $1 in
 		from_rev="$1"
 		;;
 	--local)
-		check_flag_for_subcommand "$1" "install" "update" "enable"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <name> after --local" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -447,7 +448,7 @@ while [[ "$1" ]]; do case $1 in
 		local_name="$1"
 		;;
 	--remote)
-		check_flag_for_subcommand "$1" "install" "update" "enable"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -458,6 +459,19 @@ while [[ "$1" ]]; do case $1 in
 		fi
 		shift
 		remote="$1"
+		;;
+	--debug)
+		case "$subcommand" in
+			install | enable | update | use) debug_version="true" ;;
+			"")
+				echo "'--debug' is only supported for subcommands ('install', 'enable', 'update', 'use')." >&2
+				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
+				;;
+			*)
+				echo "'--debug' is not supported for subcommand '${subcommand}'" >&2
+				exit "$EXIT_FLAG_WITH_WRONG_SUBCOMMAND"
+				;;
+		esac
 		;;
 	--jobs | -j)
 		check_flag_for_subcommand "$1" "install" "update"
@@ -521,21 +535,6 @@ while [[ "$1" ]]; do case $1 in
 			use_compiler_args+=( "$1" )
 			shift
 		done
-		;;
-
-# Multi-command flags
-	--debug)
-		case "$subcommand" in
-			install | enable | update | use) debug_version="true" ;;
-			"")
-				echo "'--debug' is only supported for subcommands ('install', 'enable', 'update', 'use')." >&2
-				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
-				;;
-			*)
-				echo "'--debug' is not supported for subcommand '${subcommand}'" >&2
-				exit "$EXIT_FLAG_WITH_WRONG_SUBCOMMAND"
-				;;
-		esac
 		;;
 
 	# Anything that wasn't catched before is either an argument of a subcommand
@@ -697,7 +696,6 @@ function actually_build_from_source() {
 		fi
 	fi
 }
-
 
 function c3vm_status() {
 	local c3c_path
