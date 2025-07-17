@@ -597,7 +597,9 @@ function log_verbose() {
 #
 
 function is_arch_distro() {
-	grep --quiet --ignore-case '^ID=["'\'']\?arch["'\'']\?$' /etc/os-release
+	grep --quiet --ignore-case \
+		'^ID(_LIKE)?=["'\'']\?arch["'\'']\?$' \
+		/etc/os-release
 	return "$?"
 }
 
