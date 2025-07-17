@@ -526,7 +526,7 @@ while [[ "$1" ]]; do case $1 in
 	# or just something wrong that we can error on
 	*)
 		case "$subcommand" in
-            status | list)
+			status | list)
 				echo "Received unknown argument for '${subcommand}': '${1}'" >&2
 				exit "$EXIT_UNKNOWN_ARG"
 				;;
