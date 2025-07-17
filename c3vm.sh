@@ -853,9 +853,42 @@ function c3vm_list() {
 function determine_download_release() {
 	if [[ "$version" == "" ]]; then
 		# Get available versions and take second in list
-		get_available_versions | sed -n '2P'
+		version="$(get_available_versions | sed -n '2P')"
+	fi
+}
+
+return_determine_directory=""
+function determine_directory_prebuilt() {
+	determine_download_release
+
+	local result="${dir_compilers}/prebuilt"
+
+	case "${version}" in
+		latest-prerelease)
+			result="${result}/prereleases/latest-prereleases_" # Leave open
+			;;
+		v*)
+			result="${result}/releases/${version}"
+			;;
+		*)
+			echo "Encountered unexpected error: did not recognize version '${version}'" >&2
+			exit "$EXIT_INSTALL_UNKNOWN_VERSION"
+			;;
+	esac
+
+	if [[ "$debug_version" == "true" ]]; then
+		result="${result}-debug"
+	fi
+	return_determine_directory="${result}"
+}
+
+# This function determines which directory to use for the operations from all
+# the globals like 'version', 'from_source', 'from_rev', ...
+function determine_directory_from_globals() {
+	if [[ "$from_source" == "true" ]]; then
+		echo "TODO"
 	else
-		echo "$version"
+		determine_directory_prebuilt
 	fi
 }
 
@@ -950,45 +983,27 @@ function enable_compiler_symlink() {
 }
 
 function download_known_release() {
-	local l_version # Local version
-	l_version="$(determine_download_release)"
+	determine_directory_prebuilt
+	local output_dir="${return_determine_directory}"
 
-	# Determine output directory
-	local output_dir="${dir_compilers}/prebuilt"
-	case "${l_version}" in
-		latest-prerelease)
-			output_dir="${output_dir}/prereleases"
-			local current_date
-			current_date="$(date +%Y%M%d_%H%S)" # Unique per second
-			output_dir="${output_dir}/latest-prerelease_${current_date}"
-			;;
-		v*)
-			output_dir="${output_dir}/releases/${l_version}"
-			;;
-		*)
-			echo "Encountered unexpected error: did not recognize version '${l_version}'" >&2
-			exit "$EXIT_INSTALL_UNKNOWN_VERSION"
-			;;
-	esac
+	if [[ "$output_dir" == *"latest-prerelease" ]]; then
+		local current_date
+		current_date="$(date +%Y%M%d_%H%S)" # Unique per second
+		output_dir="${output_dir}${current_date}"
+	fi
 
 	# Determine the name of the file to download
-	local asset_name=""
+	local asset_name="c3-${operating_system}"
 	local extension=""
 	case "$operating_system" in
-		linux)
-			extension="tar.gz"
-			;;
-		macos)
-			extension="zip"
-			;;
+		linux) extension="tar.gz" ;;
+		macos) extension="zip" ;;
 	esac
 
 	if [[ "$debug_version" == "true" ]]; then
-		asset_name="c3-${operating_system}-debug.${extension}"
-		output_dir="${output_dir}-debug"
-	else
-		asset_name="c3-${operating_system}.${extension}"
+		asset_name="${asset_name}-debug"
 	fi
+	asset_name="${asset_name}.${extension}"
 
 	# Set up the output directory
 	if ! ensure_download_directory "$output_dir"; then
@@ -999,19 +1014,21 @@ function download_known_release() {
 		exit "$EXIT_OK"
 	fi
 
-	# Download the file
-	local url="https://github.com/${remote}/releases/download/${l_version}/${asset_name}"
+	local url="https://github.com/${remote}/releases/download/${version}/${asset_name}"
+	local output_file="${output_dir}/${asset_name}"
 
-	[[ "$quiet" != "true" ]] && echo "Downloading ${url}..."
-	curl --progress-bar -L -o "${output_dir}/${asset_name}" "$url"
+	# Download the file
+	log_info "Downloading ${url}..."
+	curl --progress-bar --location --output "${output_file}" "$url"
 
 	# Check for too small file or HTML error-page
-	file_size=$(wc -c < "${output_dir}/${asset_name}")
-	if [[ "$file_size" -lt 1000000 ]] ||
-		grep -qE '<html|Not Found' "${output_dir}/${asset_name}"
+	local file_size
+	file_size=$(wc -c < "${output_file}") # '<' to only get count, no name
+	if [[ "$file_size" -lt 1000000 ]] ||  # < 1 MB (normal compiler is >40MB)
+		grep -qE '<html|Not Found' "${output_file}"
 	then
 		echo "Download failed or invalid archive received." >&2
-		rm "${output_dir}/${asset_name}"
+		rm "${output_file}"
 		exit "$EXIT_INSTALL_DOWNLOAD_FAILED"
 	fi
 
