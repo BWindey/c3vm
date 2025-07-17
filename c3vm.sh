@@ -72,6 +72,7 @@ It can grab releases from Github or compile from scratch.
                             currently enabled compiler
     --dry-run               Do everything and show everything except for actually
                             removing.
+    --allow-current         Allow removing the current active version (default false).
 
  - Use command:
     --debug                 Use debug version
@@ -246,6 +247,7 @@ remove_interactive="false"
 remove_regex_match="true"
 remove_inactive="false"
 remove_dryrun="false"
+remove_allow_current="false"
 
 # Use options
 use_session="false"
@@ -485,12 +487,23 @@ while [[ "$1" ]]; do case $1 in
 		if [[ "$remove_regex_match" == "false" ]]; then
 			echo "It is not possible to use '--inactive' together with '--no-regex/-F'." >&2
 			exit "$EXIT_CONTRADICTING_FLAGS"
+		elif [[ "$remove_allow_current" == "true" ]]; then
+			echo "It is not possible to use '--inactive' together with '--allow-current'." >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
 		fi
 		remove_inactive="true"
 		;;
 	--dry-run)
 		check_flag_for_subcommand "$1" "remove"
 		remove_dryrun="true"
+		;;
+	--allow-current)
+		check_flag_for_subcommand "$1" "remove"
+		if [[ "$remove_inactive" == "true" ]]; then
+			echo "It is not possible to use '--allow-current' together with '--inactive'" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
+		remove_allow_current="true"
 		;;
 
 # Use flags
@@ -1322,16 +1335,18 @@ function c3vm_update() {
 	fi
 }
 
+current_active_version=""
+function get_current_version() {
+	current_active_version="$(which c3c 2>/dev/null | xargs readlink 2>/dev/null)"
+}
+
 function is_removeable_version() {
 	local release_dir="$1"
 	local release
 	release="$(basename "$release_dir")"
 
-	local current_version
-	current_version="$(which c3c 2>/dev/null | xargs readlink 2>/dev/null)"
-
 	if [[ "$remove_inactive" == "true" ]]; then
-		if [[ "$current_version" != "$release_dir"* ]]; then
+		if [[ "$current_active_version" != "$release_dir"* ]]; then
 			return 0
 		else
 			return 1
@@ -1351,6 +1366,8 @@ function c3vm_remove() {
 	local dir_releases="${dir_compilers}/prebuilt/releases/"
 	local dir_prerels="${dir_compilers}/prebuilt/prereleases/"
 
+	get_current_version
+
 	local release
 
 	for release_dir in "${dir_releases}"* "${dir_prerels}"*; do
@@ -1358,6 +1375,12 @@ function c3vm_remove() {
 		if [[ "$release" == "*" ]]; then continue; fi # Empty dir
 
 		if ! is_removeable_version "$release_dir"; then
+			continue
+		fi
+
+		if [[ "$remove_allow_current" != "true" && "$current_active_version" == "$release_dir"* ]]
+		then
+			log_info "Cannot remove '${release}' as it is currently active (use '--allow-current' if needed)."
 			continue
 		fi
 
@@ -1376,6 +1399,14 @@ function c3vm_remove() {
 			fi
 		fi
 		log_info "Removed '$release'."
+		if [[ "$current_active_version" == "$release_dir"* ]]; then
+			log_info "The removed version was the currently active version."
+			log_info "Use 'c3vm enable <version>' to enable a new version."
+			log_info "Removing (now broken) symlink..."
+			# Safe to unlink (managed by c3vm) as the current active version
+			# matches one of the versions inside '~/.local/bin/c3vm/'
+			unlink "$HOME/.local/bin/c3c"
+		fi
 		found_match="true"
 	done
 
