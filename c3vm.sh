@@ -466,10 +466,18 @@ while [[ "$1" ]]; do case $1 in
 		;;
 	--no-regex | -F)
 		check_flag_for_subcommand "$1" "remove"
+		if [[ "$remove_inactive" == "true" ]]; then
+			echo "It is not possible to use '${1}' together with '--inactive'." >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
 		remove_regex_match="false"
 		;;
 	--inactive)
 		check_flag_for_subcommand "$1" "remove"
+		if [[ "$remove_regex_match" == "false" ]]; then
+			echo "It is not possible to use '--inactive' together with '--no-regex/-F'." >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
 		remove_inactive="true"
 		;;
 
@@ -571,7 +579,7 @@ case "$subcommand" in
 		fi
 		;;
 	remove)
-		if [[ "$version" == "" ]]; then
+		if [[ "$version" == "" && "$remove_inactive" != "true" ]]; then
 			echo "Expected version behind 'remove' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
