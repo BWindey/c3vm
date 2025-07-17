@@ -140,9 +140,12 @@ EXIT_ADDLOCAL_NONEXISTING_PATH=70
 EXIT_ADDLOCAL_INVALID_NAME=71
 
 EXIT_UPDATE_NO_VERSION_FOUND=81
-EXIT_UPDATE_BUILD_DIR=82
 
 EXIT_REMOVE_FAILED_RM=90
+
+EXIT_USE_VERSION_NOT_FOUND=100
+EXIT_USE_MULTIPLE_VERSIONS_FOUND=101
+EXIT_USE_NO_EXECUTABLE_FOUND=102
 
 
 function ensure_directories() {
@@ -1417,6 +1420,40 @@ function c3vm_remove() {
 	# TODO: git directories? How finegrained?
 }
 
+function c3vm_use() {
+	local found_versions=()
+	readarray -d '' found_versions < \
+		<(find "${dir_compilers}/prebuilt/" -type d -name "${version}*" -print0)
+
+	case "${#found_versions[@]}" in
+		0)
+			echo "Found no installed version matching '${version}'" >&2
+			exit "$EXIT_USE_VERSION_NOT_FOUND"
+			;;
+		1) # Everything fine
+			;;
+		*)
+			echo "Found multiple versions matching '${version}'" >&2
+			echo "${found_versions[@]}" >&2
+			echo "Run again with exact match" >&2
+			exit "$EXIT_USE_MULTIPLE_VERSIONS_FOUND"
+			;;
+	esac
+
+	local found_version="${found_versions[0]}"
+
+	local executable_path
+	executable_path="$(find "${found_version}" -type f -executable -name "c3c")"
+
+	if ! [[ -e "$executable_path" ]]; then
+		echo "Could not find the 'c3c' executable inside '${found_version}'" >&2
+		exit "$EXIT_USE_NO_EXECUTABLE_FOUND"
+	fi
+
+	local command=( "${executable_path}" "${use_compiler_args[@]}" )
+	"${command[@]}"
+}
+
 case "$subcommand" in
 	status)
 		c3vm_status
@@ -1435,6 +1472,9 @@ case "$subcommand" in
 		;;
 	remove)
 		c3vm_remove
+		;;
+	use)
+		c3vm_use
 		;;
 	*)
 		echo "'${subcommand}' not implemented yet"
