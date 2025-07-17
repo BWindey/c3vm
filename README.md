@@ -3,7 +3,8 @@
 `c3vm` is a bash-script that manages versions of the C3 compiler.
 
 > [!WARNING]
-> `c3vm` is still in beta, only `status`, `enable` and `install` are implemented.
+> `c3vm` is still in beta, the `add-local` subcommand and related functionality
+> is missing, and some flags and such are also not there yet.
 > Feel free to use it, to report bugs, to share ideas.
 > Installation instructions will improve when this script is considered finished.
 
@@ -53,6 +54,10 @@ explain it to you.
 
 
 ## For @foxkiana
-I provided a `update_c3vm` script, as requested. It's seperate because I'm lazy.
-You can symlink it to `~/.local/bin/`, and maybe alias it or whatever you want.
-Again, it's your computer, go crazy!
+There is the undocumented `c3vm upgrade` command. It will try to update the `c3vm`
+script itself, by checking if it is inside a git repo (and then do `git pull`)
+or else try to download it from Github with `curl`.
+
+This `upgrade` subcommand will remain undocumented, as it is not meant to be used.
+After all, this `c3vm` script shouldn't really need to receive any updates
+anymore after the "beta" tag is lifted (see top of this README).
