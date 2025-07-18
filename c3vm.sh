@@ -425,11 +425,11 @@ while [[ "$1" ]]; do case $1 in
 		;;
 
 	--from-source)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
 		from_source="true"
 		;;
 	--checkout)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <rev> after --checkout" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -438,7 +438,7 @@ while [[ "$1" ]]; do case $1 in
 		from_rev="$1"
 		;;
 	--local)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <name> after --local" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -447,7 +447,7 @@ while [[ "$1" ]]; do case $1 in
 		local_name="$1"
 		;;
 	--remote)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use"
+		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -461,7 +461,9 @@ while [[ "$1" ]]; do case $1 in
 		;;
 	--debug)
 		case "$subcommand" in
-			install | enable | update | use) debug_version="true" ;;
+			install | enable | update | use | remove)
+				debug_version="true"
+				;;
 			"")
 				echo "'--debug' is only supported for subcommands ('install', 'enable', 'update', 'use')." >&2
 				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
@@ -614,7 +616,8 @@ case "$subcommand" in
 		fi
 		;;
 	remove)
-		if [[ "$version" == "" && "$remove_inactive" != "true" ]]; then
+		if [[ "$version" == "" && "$remove_inactive" != "true" && "$from_source" != "true" ]]
+		then
 			echo "Expected version behind 'remove' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
@@ -1116,7 +1119,7 @@ function determine_git_build_dir() {
 	local remotes
 	remotes="$(git -C "$git_dir" remote show -n)"
 	if [[ "$remotes" != *"origin"* ]]; then
-		echo "Could not find remote 'origin', which is required to make this work." >&2
+		echo "Could not find remote 'origin', which is required to determine default branch." >&2
 		exit "$EXIT_INSTALL_NO_VALID_REMOTE"
 	fi
 	local default_branch
@@ -1159,8 +1162,8 @@ function determine_git_build_dir() {
 	return_determine_git_build_dir="${build_dir}"
 }
 
-# This function assumes you're already inside the git repository, and will
-# return inside the created build-folder from where 'cmake ../..' can be executed
+# This function calls 'determine_git_build_dir()' and creates that build dir
+# if needed, and returns the build directory.
 return_install_setup_build_folders=""
 function install_setup_build_folders() {
 	local git_dir="$1"
