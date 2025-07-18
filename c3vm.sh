@@ -299,8 +299,12 @@ function check_valid_version() {
 		echo "Versions below v0.6.0 are not supported (asked for '${1}')" >&2
 		exit "$EXIT_UNSUPPORTED_VERSION"
 	fi
-	if [[ "$1" =~ ^latest([-_]prerelease)?$ ]]; then
-		return_check_valid_version="${1/_/-}"
+	if [[ "$1" =~ ^latest([-_]prerelease.*)?$ ]]; then
+		if [[ "$1" == "latest_prerelease"* ]]; then
+			return_check_valid_version="${1/_/-}"
+		else
+			return_check_valid_version="$1"
+		fi
 		return
 	fi
 	if ! [[ "$1" =~ ^v?[0-9]\.[0-9]+\.[0-9]+(-debug)?$ ]]; then
@@ -1272,27 +1276,21 @@ function enable_prebuilt() {
 	fi
 
 	local matches
-	mapfile -t matches < <(find "${dir_compilers}/prebuilt/" -type d -name "${to_search}*" 2>/dev/null)
+	mapfile -t matches < \
+		<(find "${dir_compilers}/prebuilt/" -type d -name "${to_search}*" 2>/dev/null)
 
-	match_count="${#matches[@]}"
+	if (( ${#matches[@]} == 0 )); then
+		echo "No compilers installed that match ${to_search}" >&2
+		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+	elif (( ${#matches[@]} > 1 )); then
+		echo "Found multiple matches:" >&2
+		printf '- %s\n' "${matches[@]}" >&2
+		echo "Run command again with one of those." >&2
+		exit "$EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND"
+	fi
 
-	case "$match_count" in
-		0)
-			echo "No compilers installed that match ${to_search}" >&2
-			exit "$EXIT_ENABLE_NO_VERSION_FOUND"
-			;;
-		1)
-			enable_compiler_symlink "${matches[0]}"
-			exit "$EXIT_OK"
-			;;
-		*)
-			echo "Found multiple matches:"
-			printf '%s\n' "${matches[@]}"
-			echo "Run command again with one of those."
-			exit "$EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND"
-			;;
-		esac
-	}
+	enable_compiler_symlink "${matches[0]}"
+}
 
 function enable_from_source() {
 	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
@@ -1492,7 +1490,7 @@ function use_from_directory() {
 		exit "$EXIT_USE_NO_EXECUTABLE_FOUND"
 	elif (( ${#found_executables[@]} > 1 )); then
 		echo "Multiple 'c3c' executables found in '${search_dir}':" >&2
-		echo "${found_executables[@]}" >&2
+		printf '- %s\n' "${found_executables[@]}" >&2
 		exit "$EXIT_USE_MULTIPLE_EXECUTABLES_FOUND"
 	fi
 
