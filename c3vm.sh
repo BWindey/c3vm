@@ -145,8 +145,7 @@ EXIT_UPDATE_NO_VERSION_FOUND=81
 EXIT_REMOVE_FAILED_RM=90
 
 EXIT_USE_VERSION_NOT_FOUND=100
-EXIT_USE_MULTIPLE_VERSIONS_FOUND=101
-EXIT_USE_NO_EXECUTABLE_FOUND=102
+EXIT_USE_NO_EXECUTABLE_FOUND=101
 
 
 function ensure_directories() {
@@ -874,7 +873,7 @@ function determine_directory_prebuilt() {
 
 	case "${version}" in
 		latest-prerelease)
-			result="${result}/prereleases/latest-prereleases_" # Leave open
+			result="${result}/prereleases/latest-prerelease_" # Leave open
 			;;
 		v*)
 			result="${result}/releases/${version}"
@@ -889,16 +888,6 @@ function determine_directory_prebuilt() {
 		result="${result}-debug"
 	fi
 	return_determine_directory="${result}"
-}
-
-# This function determines which directory to use for the operations from all
-# the globals like 'version', 'from_source', 'from_rev', ...
-function determine_directory_from_globals() {
-	if [[ "$from_source" == "true" ]]; then
-		echo "TODO"
-	else
-		determine_directory_prebuilt
-	fi
 }
 
 # This function creates the necessary directories if needed, exits the script
