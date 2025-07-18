@@ -148,6 +148,7 @@ EXIT_REMOVE_NOT_FOUND=91
 
 EXIT_USE_VERSION_NOT_FOUND=100
 EXIT_USE_NO_EXECUTABLE_FOUND=101
+EXIT_USE_MULTIPLE_EXECUTABLES_FOUND=101
 
 
 function ensure_directories() {
@@ -1474,20 +1475,27 @@ function c3vm_remove() {
 	fi
 }
 
-function use_prebuilt() {
-	determine_directory_prebuilt
-	local found_version="${return_determine_directory}"
+function use_from_directory() {
+	local search_dir="$1"
 
-	if ! [[ -d "$found_version" ]]; then
-		echo "Could not find installed version '${version}'." >&2
-		exit "$EXIT_USE_VERSION_NOT_FOUND"
+	# Check that there is only a single executable called 'c3c', otherwise I'm confused
+	local -a found_executables
+	mapfile -t found_executables < \
+		<(find "${search_dir}" -type f -executable -name "c3c")
+
+	if (( ${#found_executables[@]} == 0 )); then
+		echo "Could not find the 'c3c' executable inside '${search_dir}'" >&2
+		exit "$EXIT_USE_NO_EXECUTABLE_FOUND"
+	elif (( ${#found_executables[@]} > 1 )); then
+		echo "Multiple 'c3c' executables found in '${search_dir}':" >&2
+		echo "${found_executables[@]}" >&2
+		exit "$EXIT_USE_MULTIPLE_EXECUTABLES_FOUND"
 	fi
 
-	local executable_path
-	executable_path="$(find "${found_version}" -type f -executable -name "c3c")"
+	local executable_path="${found_executables[0]}"
 
 	if ! [[ -e "$executable_path" ]]; then
-		echo "Could not find the 'c3c' executable inside '${found_version}'" >&2
+		echo "Could not find the 'c3c' executable inside '${search_dir}'" >&2
 		exit "$EXIT_USE_NO_EXECUTABLE_FOUND"
 	fi
 
@@ -1499,8 +1507,37 @@ function use_prebuilt() {
 	fi
 }
 
+function use_prebuilt() {
+	determine_directory_prebuilt
+	local found_version="${return_determine_directory}"
+
+	if ! [[ -d "$found_version" ]]; then
+		echo "Could not find installed version '${version}'." >&2
+		exit "$EXIT_USE_VERSION_NOT_FOUND"
+	fi
+
+	use_from_directory "${found_version}"
+}
+
+function use_from_source() {
+	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+
+	if [[ ! -d "${git_dir}" ]]; then
+		echo "Could not find git-remote ${remote}." >&2
+		exit
+	fi
+
+	determine_git_build_dir "$git_dir"
+
+	use_from_directory "$return_determine_git_build_dir"
+}
+
 function c3vm_use() {
-	use_prebuilt
+	if [[ "$from_source" == "true" ]]; then
+		use_from_source
+	else
+		use_prebuilt
+	fi
 }
 
 case "$subcommand" in
