@@ -999,7 +999,7 @@ function download_known_release() {
 	determine_directory_prebuilt
 	local output_dir="${return_determine_directory}"
 
-	if [[ "$output_dir" == *"latest-prerelease" ]]; then
+	if [[ "$output_dir" == *"latest-prerelease_" ]]; then
 		local current_date
 		current_date="$(date +%Y%M%d_%H%S)" # Unique per second
 		output_dir="${output_dir}${current_date}"
@@ -1284,7 +1284,9 @@ function enable_prebuilt() {
 		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
 	elif (( ${#matches[@]} > 1 )); then
 		echo "Found multiple matches:" >&2
-		printf '- %s\n' "${matches[@]}" >&2
+		for match in "${matches[@]}"; do
+			echo "- ${match}" >&2
+		done
 		echo "Run command again with one of those." >&2
 		exit "$EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND"
 	fi
@@ -1490,7 +1492,9 @@ function use_from_directory() {
 		exit "$EXIT_USE_NO_EXECUTABLE_FOUND"
 	elif (( ${#found_executables[@]} > 1 )); then
 		echo "Multiple 'c3c' executables found in '${search_dir}':" >&2
-		printf '- %s\n' "${found_executables[@]}" >&2
+		for found_executable in "${found_executables[@]}"; do
+			echo "- ${found_executable}" >&2
+		done
 		exit "$EXIT_USE_MULTIPLE_EXECUTABLES_FOUND"
 	fi
 
