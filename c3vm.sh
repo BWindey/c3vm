@@ -73,6 +73,7 @@ It can grab releases from Github or compile from scratch.
     --dry-run               Do everything and show everything except for actually
                             removing.
     --allow-current         Allow removing the current active version (default false).
+    --entire-remote         Remove the entire remote as opposed to a single target.
 
  - Use command:
     --session               Prepends the requested compiler version to your '$PATH'
@@ -143,6 +144,7 @@ EXIT_ADDLOCAL_INVALID_NAME=71
 EXIT_UPDATE_NO_VERSION_FOUND=81
 
 EXIT_REMOVE_FAILED_RM=90
+EXIT_REMOVE_NOT_FOUND=91
 
 EXIT_USE_VERSION_NOT_FOUND=100
 EXIT_USE_NO_EXECUTABLE_FOUND=101
@@ -251,6 +253,7 @@ remove_regex_match="true"
 remove_inactive="false"
 remove_dryrun="false"
 remove_allow_current="false"
+remove_entire_remote="false"
 
 # Use options
 use_session="false"
@@ -522,6 +525,10 @@ while [[ "$1" ]]; do case $1 in
 			exit "$EXIT_CONTRADICTING_FLAGS"
 		fi
 		remove_allow_current="true"
+		;;
+	--entire-remote)
+		check_flag_for_subcommand "$1" "remove"
+		remove_entire_remote="true"
 		;;
 
 # Use flags
@@ -1379,7 +1386,7 @@ function is_removeable_version() {
 	fi
 }
 
-function c3vm_remove() {
+function c3vm_remove_prebuilt() {
 	local found_match="false"
 
 	local dir_releases="${dir_compilers}/prebuilt/releases/"
@@ -1432,8 +1439,39 @@ function c3vm_remove() {
 	if [[ "$found_match" != "true" ]]; then
 		log_info "No matches found."
 	fi
+}
 
-	# TODO: git directories? How finegrained?
+function c3vm_remove_from_source() {
+	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+
+	if [[ ! -d "${git_dir}" ]]; then
+		echo "Cannot remove because '${git_dir}' does not exist." >&2
+		exit "$EXIT_REMOVE_NOT_FOUND"
+	fi
+
+	local dir_to_remove="${git_dir}"
+
+	if [[ "$remove_entire_remote" != "true" ]]; then
+		determine_git_build_dir "${git_dir}"
+		dir_to_remove="${return_determine_git_build_dir}"
+	fi
+
+	if [[ "$remove_dryrun" != "true" ]] && ! rm -rf "${dir_to_remove}"
+	then
+		echo "Failed to remove remote directory '${dir_to_remove}'." >&2
+		exit "$EXIT_REMOVE_FAILED_RM"
+	else
+		log_info "Removed '${dir_to_remove}'"
+		exit "$EXIT_OK"
+	fi
+}
+
+function c3vm_remove() {
+	if [[ "$from_source" == "true" ]]; then
+		c3vm_remove_from_source
+	else
+		c3vm_remove_prebuilt
+	fi
 }
 
 function use_prebuilt() {
