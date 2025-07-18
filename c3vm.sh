@@ -1341,9 +1341,11 @@ function update_from_source() {
 		exit "$EXIT_UPDATE_NO_VERSION_FOUND"
 	fi
 
+	log_info "Pulling from remote repository inside '${git_dir}'..."
 	local answer
 	answer="$(git -C "${git_dir}" pull 2>/dev/null)"
 	if [[ "$answer" != "Already up to date." ]]; then
+		log_info "New commits found, building again..."
 		actually_build_from_source "${git_dir}" "${build_dir}"
 	else
 		echo "Already up to date."
@@ -1355,6 +1357,8 @@ function update_from_source() {
 }
 
 function c3vm_update() {
+	# TODO: make this smarter by detecting the current active version and
+	# updating that when no other flags were specified.
 	if [[ "$from_source" == "true" ]]; then
 		update_from_source
 	else
