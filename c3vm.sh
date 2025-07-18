@@ -20,8 +20,8 @@ It can grab releases from Github or compile from scratch.
                             Link a local C3 compiler directory into c3vm.
                             The local compiler must use a regular CMake
                             build-system. The name will be the name of the
-                            symlink, and used for 'update'.
-    - update                Update the current active version.
+                            symlink, and used for '--local <name>' in other commands.
+    - update                Update the current active version, if possible.
     - remove <version>      Remove specified version (substring match)
     - use <version> [-- <args>]
                             Use the specified version for a single command
@@ -62,7 +62,10 @@ It can grab releases from Github or compile from scratch.
     Same flags as 'install', except for '--dont-enable' or '--keep-archive'
 
  - Update command:
-    Same flags as 'install', but '--checkout' only accepts branches.
+    --dont-enable           Don't enable updated version, only works for prebuilts.
+    --keep-archive          Don't remove downloaded archive, only works for prebuilts.
+    --jobs, j <count>       Number of jobs to use with 'make -j <job-count>'
+                            (Default 16), only for from-source builds.
 
  - Remove command:
     --interactive, -I       Prompt before removing a version
@@ -433,11 +436,11 @@ while [[ "$1" ]]; do case $1 in
 		;;
 
 	--from-source)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
+		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
 		from_source="true"
 		;;
 	--checkout)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
+		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <rev> after --checkout" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -446,7 +449,7 @@ while [[ "$1" ]]; do case $1 in
 		from_rev="$1"
 		;;
 	--local)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
+		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected argument <name> after --local" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -455,7 +458,7 @@ while [[ "$1" ]]; do case $1 in
 		local_name="$1"
 		;;
 	--remote)
-		check_flag_for_subcommand "$1" "install" "update" "enable" "use" "remove"
+		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -469,11 +472,11 @@ while [[ "$1" ]]; do case $1 in
 		;;
 	--debug)
 		case "$subcommand" in
-			install | enable | update | use | remove)
+			install | enable | use | remove)
 				debug_version="true"
 				;;
 			"")
-				echo "'--debug' is only supported for subcommands ('install', 'enable', 'update', 'use')." >&2
+				echo "'--debug' is only supported for subcommands ('install', 'enable', 'use')." >&2
 				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
 				;;
 			*)
@@ -1356,19 +1359,38 @@ function update_from_source() {
 	fi
 }
 
-function c3vm_update() {
-	# TODO: make this smarter by detecting the current active version and
-	# updating that when no other flags were specified.
-	if [[ "$from_source" == "true" ]]; then
-		update_from_source
-	else
-		download_known_release
+function update_prebuilt() {
+	local current_active="${1#"${dir_compilers}/prebuilt/"}"
+	current_active="${current_active#*releases/}" # Strip (pre)releases
+	current_active="${current_active%%/*}" # Strip everything behind first '/'
+
+	if [[ "$current_active" == *"-debug" ]]; then
+		debug_version="true"
 	fi
+	if [[ "$current_active" == "latest-prerelease"* ]]; then
+		version="latest-prerelease"
+	fi
+	# Else leave version on default so it will pick out the latest release
+
+	download_known_release
 }
 
 current_active_version=""
 function get_current_version() {
 	current_active_version="$(which c3c 2>/dev/null | xargs readlink 2>/dev/null)"
+}
+
+function c3vm_update() {
+	get_current_version
+
+	case "$current_active_version" in
+		"${dir_compilers}/git/remote/"*)
+			update_from_source
+			;;
+		"${dir_compilers}/prebuilt/"*)
+			update_prebuilt "$current_active_version"
+			;;
+	esac
 }
 
 function is_removeable_version() {
