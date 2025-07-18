@@ -12,8 +12,11 @@ c3vm \- a c3c version manager
 This manpage documents the use (and some of the workings) of this version
 manager for c3c (the compiler for C3).
 It is a bash script that can install and manage versions of the compiler.
-It does so by grabbing releases from github or even compiler it from scratch,
+It does so by grabbing releases from github or even compile it from scratch,
 and symlink the resulting binary to $HOME/.local/bin/c3c.
+
+Most commands that have to do with "selecting" a certain version support the
+same flags as the 'install' subcommand.
 
 
 .SH SUBCOMMANDS
@@ -24,7 +27,7 @@ compiled versions it shows the remote/local and git-rev (branch, tag or commit).
 Both also differentiate between debug or release builds.
 
 .IP list
-Lists the installed compilers. TODO
+Lists the installed compilers or the versions available on GitHub with --available.
 
 .IP install
 Install a version of the compiler.
@@ -160,39 +163,85 @@ Builds on tags or commits are fixed.
 \- Unknown type, should be 'git' or 'prebuilt'
 
 .SS Install failures
-.B 30
+.B 40
 \- Directory not available to save into
 .br
-.B 31
+.B 41
 \- Version was not recognized when determening the directory path
 .br
-.B 32
+.B 42
 \- Download failed
 .br
-.B 33
+.B 43
 \- Current c3c installation is not a symlink
 .br
-.B 34
+.B 44
 \- Current c3c installation is not managed by c3vm
 .br
-.B 35
+.B 45
 \- Failed to ensure OK git directory
 .br
-.B 36
+.B 46
 \- Link to remote for existing git repo was not recognized as valid git-link-format
 .br
-.B 37
+.B 47
 \- Failed to clone the git repository
+.br
+.B 48
+\- Could not find CMakeLists.txt in the git repository
+.br
+.B 49
+\- Failed to ensure OK build directory
+.br
+.B 50
+\- Did not find 'origin' remote or its default branch
+.br
+.B 51
+\- The passed rev is not recognized by git inside the git directory
+.br
+.B 52
+\- Failed something while building (make or cmake error)
 .br
 
 .SS Enable failures
-.B 40
+.B 60
 \- Broken symlink in '$HOME/.local/bin/c3c'
+.br
+.B 61
+\- Could not find specified version
+.br
+.B 62
+\- Found multiple matching versions while expecting just one
 .br
 
 .SS Add-local failures
-.B 50
+.B 70
 \- Given path does not exist
 .br
-.B 51
+.B 71
 \- Given name is invalid
+.br
+
+.SS Update failures
+.B 80
+\- Did not find the requested version to update
+.br
+
+.SS Remove failures
+.B 90
+\- Failed to execute the 'rm' command
+.br
+.B 91
+\- Did not find the requested version to remove
+.br
+
+.SS Use failures
+.B 100
+\- Did not find the requested version to use
+.br
+.B 101
+\- Did not find an executable 'c3c' for the requested version
+.br
+.B 102
+\- Found multiple executable 'c3c's when expecting just one
+.br
