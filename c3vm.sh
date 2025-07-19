@@ -144,7 +144,8 @@ EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND=61
 EXIT_ADDLOCAL_NONEXISTING_PATH=70
 EXIT_ADDLOCAL_INVALID_NAME=71
 
-EXIT_UPDATE_NO_VERSION_FOUND=80
+EXIT_UPDATE_ON_IMMUTABLE=80
+EXIT_UPDATE_UNKNOWN_REV=81
 
 EXIT_REMOVE_FAILED_RM=90
 EXIT_REMOVE_NOT_FOUND=91
@@ -1445,22 +1446,48 @@ function c3vm_enable() {
 }
 
 function update_from_source() {
-	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+	local current_active="${1#"${dir_compilers}/git/"}"
+	# TODO: local
 
-	if [[ ! -d "$git_dir" || ! -d "${git_dir}/.git" ]]; then
-		echo "Git repository not found in '${git_dir}'." >&2
-		echo "Try running: c3vm install --from-source ..." >&2
-		exit "$EXIT_UPDATE_NO_VERSION_FOUND"
+	# Extract the needed info from the current-active-path
+	current_active="${current_active#remote/}"
+
+	local active_remote="${current_active%%/*}"
+	local git_dir="${dir_compilers}/git/remote/${active_remote}"
+
+	current_active="${current_active#"${active_remote}/build/"}"
+
+	local target="${current_active%%/*}"
+	local build_type="${target##*_}"   # 'release' or 'debug'
+	local git_rev="${target%"${build_type}"}"
+
+	if [[ "$git_rev" == "" ]]; then
+		git_get_default_branch "$git_dir"
+		git_rev="${return_git_get_default_branch}"
 	fi
 
-	determine_git_build_dir "$git_dir"
-	local build_dir="${return_determine_git_build_dir}"
-
-	if [[ ! -d "$build_dir" ]]; then
-		echo "Build folder not found: ${build_dir}" >&2
-		echo "Try running: c3vm install --from-source ..." >&2
-		exit "$EXIT_UPDATE_NO_VERSION_FOUND"
+	if git_rev_is_branch "$git_rev" "$git_dir"; then
+		true # Do nothing
+	elif git_rev_is_tag "$git_rev" "$git_dir"; then
+		echo "Current version is built on a tag, that cannot be updated." >&2
+		exit "$EXIT_UPDATE_ON_IMMUTABLE"
+	elif git_rev_is_commit "$git_rev" "$git_dir"; then
+		echo "Current version is built on a commit, that cannot be updated." >&2
+		exit "$EXIT_UPDATE_ON_IMMUTABLE"
+	else
+		echo "Huh? Something is wrong. You're on a version that is neither a tag, commit or branch." >&2
+		exit "$EXIT_UPDATE_UNKNOWN_REV"
 	fi
+
+	# Make sure we're on the right branch
+	if [[ "$verbose" == "true" ]]; then
+		echo -n "git: "
+		git -C "$git_dir" switch "$git_rev"
+	else
+		git -C "$git_dir" switch "$git_rev" >/dev/null 2>&1
+	fi
+
+	local build_dir="${1%/*}/"
 
 	log_info "Pulling from remote repository inside '${git_dir}'..."
 	local answer
@@ -1468,12 +1495,9 @@ function update_from_source() {
 	if [[ "$answer" != "Already up to date." ]]; then
 		log_info "New commits found, building again..."
 		actually_build_from_source "${git_dir}" "${build_dir}"
-	else
-		echo "Already up to date."
-	fi
-
-	if [[ "$enable_after" == "true" ]]; then
 		enable_compiler_symlink "$build_dir"
+	else
+		log_info "Already up to date."
 	fi
 }
 
@@ -1503,7 +1527,7 @@ function c3vm_update() {
 
 	case "$current_active_version" in
 		"${dir_compilers}/git/remote/"*)
-			update_from_source
+			update_from_source "$current_active_version"
 			;;
 		"${dir_compilers}/prebuilt/"*)
 			update_prebuilt "$current_active_version"
