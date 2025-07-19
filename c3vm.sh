@@ -918,9 +918,27 @@ function c3vm_list() {
 }
 
 function determine_download_release() {
+	mapfile -t available_versions < <(get_available_versions)
+	local latest_version="${available_versions[1]}"
+
 	if [[ "$version" == "" ]]; then
 		# Get available versions and take second in list
-		version="$(get_available_versions | sed -n '2P')"
+		version="${latest_version}"
+	else
+		# We already checked if the version is too low (< v0.6.0)
+		# but now also need to check if the version exists
+		local found_match="false"
+		for av_version in "${available_versions[@]}"; do
+			if [[ "$av_version" == "$version" ]]; then
+				found_match="true"
+				break
+			fi
+		done
+
+		if [[ "$found_match" != "true" ]]; then
+			echo "Version '${version}' is not an available version." >&2
+			exit "$EXIT_INVALID_VERSION"
+		fi
 	fi
 }
 
