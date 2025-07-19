@@ -8,8 +8,6 @@
 > Feel free to use it, to report bugs, to share ideas.
 > Installation instructions will improve when this script is considered finished.
 
-There is a manpage, feel free to search the internet on how to install it.
-
 ## Example useage:
 ```sh
 # Install and enable latest stable release
@@ -27,12 +25,21 @@ c3vm enable v0.6.8
 
 
 ## How to install
-It's a normal bash-script, install it the way you like.
-Either clone this repository or just
-[download the script](https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm.sh).
-After that you can place it somewhere in your `$PATH`, either by symlinking or
-by copying it.
+A quick way to get started with `c3vm` + `c3c` you can execute the following
+three commands (you can copy them and paste them and your shell will execute them in order):
+```sh
+curl -o c3vm https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm.sh
+chmod u+x c3vm
+./c3vm install
+```
 
+If you want to continue using `c3vm`, you'll want to move the script to somewhere
+in your `$PATH`.
+
+You can also clone this repository and move the script or symlink it to somewhere
+in your `$PATH`.
+
+### Manpage
 There also is a
 [manpage](https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm.1).
 After downloading it (or getting it by cloning this repository), you can copy
