@@ -27,11 +27,18 @@ c3vm enable v0.6.8
 
 
 ## How to install
-It's a bash script. Not so hard.
-Personally I'd recommend cloning this repo (remember, it's still beta, so expect
-updates in the future that you definitly want). Then you make a symlink to
-a directory in your `$PATH`, I'd recommend `~/.local/bin`, but hey, it's your
-computer, go crazy!
+It's a normal bash-script, install it the way you like.
+Either clone this repository or just
+[download the script](https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm.sh).
+After that you can place it somewhere in your `$PATH`, either by symlinking or
+by copying it.
+
+There also is a
+[manpage](https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm.1).
+After downloading it (or getting it by cloning this repository), you can copy
+or symlink it to your manpage folder, usually located in `/usr/local/share/man/man1/`.
+See more info here: https://www.baeldung.com/linux/man-pages-manual-install .
+(You might need to run `mandb` to update the `man` database.)
 
 
 ## How it works
