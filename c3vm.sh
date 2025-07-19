@@ -1183,48 +1183,107 @@ function ensure_remote_git_directory() {
 	fi
 }
 
-return_determine_git_build_dir=""
-function determine_git_build_dir() {
+return_git_get_default_branch=""
+function git_get_default_branch() {
 	local git_dir="$1"
 
-	local build_dir="${git_dir}/build"
-
-	# Check if 'origin' is
+	# We can only get a default branch from the remote, sooooo, first determine remote
 	local remotes
 	remotes="$(git -C "$git_dir" remote show -n)"
 	if [[ "$remotes" != *"origin"* ]]; then
 		echo "Could not find remote 'origin', which is required to determine default branch." >&2
 		exit "$EXIT_INSTALL_NO_VALID_REMOTE"
 	fi
+
+	# And now query for default branch
 	local default_branch
-	default_branch="$(git -C "$git_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
-	if [[ "$default_branch" == "" ]]; then
+	default_branch="$(
+		git -C "$git_dir" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null
+	)"
+	return_git_get_default_branch="${default_branch#origin/}"
+
+	# And last check to see if we actually got something
+	if [[ "$return_git_get_default_branch" == "" ]]; then
 		echo "Did not find a default branch." >&2
 		exit "$EXIT_INSTALL_NO_VALID_REMOTE"
 	fi
 
+	log_verbose "Determined '${return_git_get_default_branch}' as default branch in '${git_dir}'"
+}
+
+function git_rev_is_branch() {
+	local rev="$1"
+	local git_dir="$2"
+	git -C "$git_dir" show-ref --verify --quiet "refs/heads/${rev}"
+	return "$?"
+}
+
+function git_rev_is_tag() {
+	local rev="$1"
+	local git_dir="$2"
+	git -C "$git_dir" show-ref --verify --quiet "refs/tags/${rev}"
+	return "$?"
+}
+
+return_git_rev_is_commit=""
+function git_rev_is_commit() {
+	local rev="$1"
+	local git_dir="$2"
+	return_git_rev_is_commit="$(
+		git -C "$git_dir" rev-parse --quiet --verify "${rev}^{commit}" >/dev/null
+	)"
+	return "$?"
+}
+
+# This function does two things:
+# - parse the 'from-rev' into the right build folder
+# - 'git checkout'
+# - return the build folder
+# Which are actually three things. Sad sad sad
+return_determine_git_build_dir=""
+function determine_git_build_dir() {
+	local git_dir="$1"
+
+	local build_dir="${git_dir}/build"
+
+	git_get_default_branch "${git_dir}"
+	local default_branch="${return_git_get_default_branch}"
+
 	# If not default branch, determine what to add before release/debug
 	if [[ "$from_rev" != "default" ]]; then
 		# Check if it's a branch
-		if git -C "$git_dir" show-ref --verify --quiet "refs/heads/${from_rev}"; then
+		if git_rev_is_branch "${from_rev}" "${git_dir}"; then
 			build_dir="${build_dir}/${from_rev}_"
 
 		# Check if it's a tag
-		elif git -C "$git_dir" show-ref --verify --quiet "refs/tags/${from_rev}"; then
+		elif git_rev_is_tag "${from_rev}" "${git_dir}"; then
 			build_dir="${build_dir}/${from_rev}_"
 
 		# Check if it's a valid commit (full or short hash)
-		elif git -C "$git_dir" rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null; then
+		elif git_rev_is_commit "${from_rev}" "${git_dir}"; then
 			local commit_hash
-			commit_hash="$(git -C "$git_dir" rev-parse --quiet --verify "${from_rev}^{commit}" >/dev/null)"
+			commit_hash="${return_git_rev_is_commit}"
 			build_dir="${build_dir}/${commit_hash::7}"
 
 		else
 			echo "Git does not know '${from_rev}'." >&2
 			exit "$EXIT_INSTALL_UNKNOWN_REV"
 		fi
+
+		if [[ "$verbose" == "true" ]]; then
+			echo -n "git: "
+			git -C "$git_dir" checkout "$from_rev"
+		else
+			git -C "$git_dir" checkout "$from_rev" >/dev/null 2>&1
+		fi
 	else
 		build_dir="${build_dir}/"
+		if [[ "$verbose" == "true" ]]; then
+			echo -n "git: "
+			git -C "$git_dir" switch "$default_branch"
+		else
+			git -C "$git_dir" switch "$default_branch" >/dev/null 2>&1
+		fi
 	fi
 
 	if [[ "$debug_version" == "true" ]]; then
