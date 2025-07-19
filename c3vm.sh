@@ -796,8 +796,49 @@ function c3vm_status() {
 }
 
 function c3vm_list_installed() {
-	tree -L 2 --noreport "${dir_compilers}/prebuilt" |
-		sed '1s/^.*$/Prebuilt:/'
+	# This used to be a 'tree' call, but that is not something that is installed
+	# on most systems, so we do some manual work.
+	echo 'Prebuilt:'
+	echo '├── prereleases'
+
+	# First gather so we know how many so we can use different prefix for the last
+	local prereleases=()
+	for prerelease in "${dir_compilers}/prebuilt/prereleases/"*; do
+		# Catch when there is nothing in 'prereleases/'
+		if [[ "$prerelease" != *"/prereleases/*" ]]; then
+			prereleases+=( "$( basename "${prerelease}")" )
+		fi
+	done
+
+	# Print the prereleases
+	for index in "${!prereleases[@]}"; do
+		if (( index < ${#prereleases[@]} - 1 )); then
+			echo "│   ├── ${prereleases[$index]}"
+		else
+			echo "│   └── ${prereleases[$index]}"
+		fi
+	done
+
+	echo '└── releases'
+	# Now the same for releases
+	local releases=()
+	for release in "${dir_compilers}/prebuilt/releases/"*; do
+		if [[ "$release" != *"/releases/*" ]]; then
+			releases+=( "$( basename "${release}")" )
+		fi
+	done
+
+	# Print the releases
+	for index in "${!releases[@]}"; do
+		if (( index < ${#releases[@]} - 1 )); then
+			echo "    ├── ${releases[$index]}"
+		else
+			echo "    └── ${releases[$index]}"
+		fi
+	done
+
+
+	# Seperator between prebuilt and from-source
 	echo ''
 
 	# Sadly the `git/` folder is a loooot more work, as `tree` does not provide
