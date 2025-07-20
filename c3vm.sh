@@ -898,9 +898,10 @@ function c3vm_list_installed() {
 
 function get_available_versions() {
 	log_verbose "Getting the available version from GitHub..."
-	curl -s "https://api.github.com/repos/${remote}/releases" \
-	| jq -r '.[].tag_name' \
-	| grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$"
+	curl -s "https://api.github.com/repos/${remote}/releases" |
+		jq -r '.[].tag_name' |
+		grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$" |
+		grep -v "v0.5.*"
 }
 
 function c3vm_list_available() {
