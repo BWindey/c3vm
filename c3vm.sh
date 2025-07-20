@@ -1334,11 +1334,6 @@ function install_from_source() {
 	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
 	ensure_remote_git_directory "$git_dir"
 
-	if ! cd "$git_dir"; then
-		echo "Failed to enter '${git_dir}' to install '${version}' in it"
-		exit "$EXIT_INSTALL_GIT_DIR"
-	fi
-
 	if [[ "$return_ensure_remote_git_directory" == "true" ]]; then
 		echo -n "To clone the remote repository, use https or ssh? [h/s] "
 		read -r ans
@@ -1375,11 +1370,12 @@ function install_from_source() {
 	done
 
 	install_setup_build_folders "${git_dir}"
+	local build_dir="${return_install_setup_build_folders}"
 
-	actually_build_from_source "${git_dir}" "${return_install_setup_build_folders}"
+	actually_build_from_source "${git_dir}" "${build_dir}"
 
 	if [[ "$enable_after" ]]; then
-		enable_compiler_symlink "$(pwd)"
+		enable_compiler_symlink "${build_dir}"
 	fi
 }
 
