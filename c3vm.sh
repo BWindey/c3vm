@@ -1462,6 +1462,8 @@ function update_from_source() {
 	if [[ "$git_rev" == "" ]]; then
 		git_get_default_branch "$git_dir"
 		git_rev="${return_git_get_default_branch}"
+	elif [[ "$git_rev" == *_ ]]; then
+		git_rev="${git_rev::-1}"
 	fi
 
 	if git_rev_is_branch "$git_rev" "$git_dir"; then
