@@ -1215,7 +1215,9 @@ function git_get_default_branch() {
 function git_rev_is_branch() {
 	local rev="$1"
 	local git_dir="$2"
-	git -C "$git_dir" show-ref --verify --quiet "refs/heads/${rev}"
+
+	# TODO: this only works for remote branches, not local ones.
+	git -C "$git_dir" branch -r --list "origin/${rev}" | grep -F --quiet "origin/${rev}"
 	return "$?"
 }
 
