@@ -65,7 +65,13 @@ function _c3vm_complete() {
 	)
 	local list_options=(
 		"${global_options[@]}"
-		"--installed" "-i" "--available" "-a"
+		"--installed" "-i"
+		"--available" "-a"
+		"--remote"
+		"--remote-installed"
+		"--remote-builds"
+		"--remote-tags"
+		"--remote-branches"
 	)
 	local install_options=(
 		"${global_options[@]}"
@@ -112,10 +118,14 @@ function _c3vm_complete() {
 	)
 
 	# First catch the "special" ones like flags needing arguments
-	# case "${previous}" in
-	# 	*)
-	# 		;;
-	# esac
+	case "${previous}" in
+		--remote)
+			local installed_remotes
+			mapfile -t installed_remotes < <(c3vm list --remote-installed)
+			_complete_options "${current}" "${installed_remotes[*]}"
+			return
+			;;
+	esac
 
 	# Then, if no subcommand was already given, complete with subcommands
 	# and global options
