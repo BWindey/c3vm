@@ -59,12 +59,12 @@ It can grab releases from Github or compile from scratch.
                             (Default 16)
 
  - Enable command:
-    Same flags as 'install', except for '--dont-enable' or '--keep-archive'
+    Same flags as 'install', except for '--dont-enable', '--keep-archive' or '--jobs'.
 
  - Update command:
     --dont-enable           Don't enable updated version, only works for prebuilts.
     --keep-archive          Don't remove downloaded archive, only works for prebuilts.
-    --jobs, j <count>       Number of jobs to use with 'make -j <job-count>'
+    --jobs, -j <count>      Number of jobs to use with 'make -j <job-count>'
                             (Default 16), only for from-source builds.
 
  - Remove command:
