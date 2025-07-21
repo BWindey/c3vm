@@ -18,6 +18,23 @@ function try_complete_c3c() {
 	fi
 }
 
+# This function caches the result of `c3vm list --available` as that needs to
+# do a network request to fulfill. Caching has of course the risk of not being
+# up to date, so I'm decided to refresh once a day.
+function get_available_versions() {
+	local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/c3vm_completions"
+	local cache_file
+	cache_file="${cache_dir}/$(date --iso-8601)"
+
+	if [[ -f "$cache_file" ]]; then
+		tr '\n' ' ' < "$cache_file"
+	else
+		mkdir -p "$cache_dir"
+		rm "${cache_dir}/*" 2>/dev/null 1>&2
+		c3vm list --available 2>/dev/null > "$cache_file"
+	fi
+}
+
 function _c3vm_complete() {
 	local current previous
 	current="${COMP_WORDS[COMP_CWORD]}"
@@ -110,7 +127,11 @@ function _c3vm_complete() {
 			_complete_options "${current}" "${list_options[*]}"
 			;;
 		install)
-			_complete_options "${current}" "${install_options[*]}"
+			local options="${install_options[*]}"
+			if [[ "${COMP_WORDS[*]}" != *" --from-source"* ]]; then
+				options+=( "$(get_available_versions)" )
+			fi
+			_complete_options "${current}" "${options[*]}"
 			;;
 		enable)
 			_complete_options "${current}" "${enable_options[*]}"
