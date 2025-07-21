@@ -35,8 +35,16 @@ It can grab releases from Github or compile from scratch.
     -h                      Print short help
 
  - List command:
-    --installed, -i         List installed compilers (default)
+    --installed, -i         List installed compilers in pretty output (default)
     --available, -a         List all available compilers (from Github)
+
+    # Below are primarily used for the completion script
+    --remote-installed      List all installed remotes
+    --remote-builds <remote>
+                            List all builds for a certain remote
+    --remote-tags <remote>  List all tags for a certain remote
+    --remote-branches <remote>
+                            List all branches for a certain remote
 
  - Install command:
     --debug                 Install the debug version
@@ -128,14 +136,13 @@ EXIT_INSTALL_UNKNOWN_VERSION=41
 EXIT_INSTALL_DOWNLOAD_FAILED=42
 EXIT_INSTALL_CURRENT_NO_SYMLINK=43
 EXIT_INSTALL_NOT_C3VM_OWNED=44
-EXIT_INSTALL_GIT_DIR=45
-EXIT_INSTALL_UNRECOGNIZED_REMOTE=46
-EXIT_INSTALL_CANT_CLONE=47
-EXIT_INSTALL_NO_CMAKE=48
-EXIT_INSTALL_BUILD_DIR=49
-EXIT_INSTALL_NO_VALID_REMOTE=50
-EXIT_INSTALL_UNKNOWN_REV=51
-EXIT_INSTALL_BUILD_FAILURE=52
+EXIT_INSTALL_UNRECOGNIZED_REMOTE=45
+EXIT_INSTALL_CANT_CLONE=46
+EXIT_INSTALL_NO_CMAKE=47
+EXIT_INSTALL_BUILD_DIR=48
+EXIT_INSTALL_NO_VALID_REMOTE=49
+EXIT_INSTALL_UNKNOWN_REV=50
+EXIT_INSTALL_BUILD_FAILURE=51
 
 EXIT_ENABLE_BROKEN_SYMLINK=60
 EXIT_ENABLE_NO_VERSION_FOUND=61
@@ -295,8 +302,16 @@ function check_flag_for_subcommand() {
 	fi
 }
 
+function check_only_one_list_filter() {
+	if [[ "$list_filter" != "" ]]; then
+		echo "It is not possible to filter on more than one category." >&2
+		exit "$EXIT_CONTRADICTING_FLAGS"
+	fi
+}
+
 # Check if the version passed as argument is valid, and echo back a "normalised"
 # version (which means that it adds a 'v' in front if needed)
+# TODO: allow everywhere to end on '_?debug' or '_?release' for easier working
 return_check_valid_version=""
 function check_valid_version() {
 	if [[ "$1" =~ ^v?0\.[0-5]\..* ]]; then
@@ -411,19 +426,33 @@ while [[ "$1" ]]; do case $1 in
 # List flags
 	--installed | -i)
 		check_flag_for_subcommand "$1" "list"
-		if [[ "$list_filter" != "" ]]; then
-			echo "It is not possible to filter on more than one category." >&2
-			exit "$EXIT_CONTRADICTING_FLAGS"
-		fi
+		check_only_one_list_filter
 		list_filter="installed"
 		;;
 	--available | -a)
 		check_flag_for_subcommand "$1" "list"
-		if [[ "$list_filter" != "" ]]; then
-			echo "It is not possible to filter on more than one category." >&2
-			exit "$EXIT_CONTRADICTING_FLAGS"
-		fi
+		check_only_one_list_filter
 		list_filter="available"
+		;;
+	--remote-installed)
+		check_flag_for_subcommand "$1" "list"
+		check_only_one_list_filter
+		list_filter="remote-installed"
+		;;
+	--remote-builds)
+		check_flag_for_subcommand "$1" "list"
+		check_only_one_list_filter
+		list_filter="remote-builds"
+		;;
+	--remote-tags)
+		check_flag_for_subcommand "$1" "list"
+		check_only_one_list_filter
+		list_filter="remote-tags"
+		;;
+	--remote-branches)
+		check_flag_for_subcommand "$1" "list"
+		check_only_one_list_filter
+		list_filter="remote-branches"
 		;;
 
 # Multi-subcommand flags (mainly 'install')
@@ -459,7 +488,7 @@ while [[ "$1" ]]; do case $1 in
 		local_name="$1"
 		;;
 	--remote)
-		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
+		check_flag_for_subcommand "$1" "install" "enable" "use" "remove" "list"
 		if [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -908,6 +937,24 @@ function c3vm_list_available() {
 	get_available_versions
 }
 
+function list_remote_installed() {
+	ls -1 "${dir_compilers}/git/remote/"
+}
+
+function list_remote_builds() {
+	ls -1 "${dir_compilers}/git/remote/${remote/\//_}/build/"
+}
+
+function list_remote_tags() {
+	git -C "${dir_compilers}/git/remote/${remote/\//_}/" tag -l
+}
+
+function list_remote_branches() {
+	git -C "${dir_compilers}/git/remote/${remote/\//_}/" branch -r |
+		grep -v "/HEAD" |
+		sed -s "s+ *origin/++"
+}
+
 function c3vm_list() {
 	case "$list_filter" in
 		"" | installed)
@@ -915,6 +962,18 @@ function c3vm_list() {
 			;;
 		available)
 			c3vm_list_available
+			;;
+		remote-installed)
+			list_remote_installed
+			;;
+		remote-builds)
+			list_remote_builds
+			;;
+		remote-tags)
+			list_remote_tags
+			;;
+		remote-branches)
+			list_remote_branches
 			;;
 	esac
 }
