@@ -40,11 +40,9 @@ It can grab releases from Github or compile from scratch.
 
     # Below are primarily used for the completion script
     --remote-installed      List all installed remotes
-    --remote-builds <remote>
-                            List all builds for a certain remote
-    --remote-tags <remote>  List all tags for a certain remote
-    --remote-branches <remote>
-                            List all branches for a certain remote
+	--remote-builds         List all builds for a remote (can use --remote)
+    --remote-tags           List all tags for a remote (can use --remote)
+    --remote-branches       List all branches for a remote (can use --remote)
 
  - Install command:
     --debug                 Install the debug version
@@ -938,7 +936,7 @@ function c3vm_list_available() {
 }
 
 function list_remote_installed() {
-	ls -1 "${dir_compilers}/git/remote/"
+	ls -1 "${dir_compilers}/git/remote/" | tr '_' '/'
 }
 
 function list_remote_builds() {
