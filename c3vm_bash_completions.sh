@@ -12,7 +12,9 @@ function try_complete_c3c() {
 	COMP_POINT="${#COMP_LINE}"
 
 	# Call c3c completion function
-	if declare -F _c3c_complete &>/dev/null; then
+	# Support both the old and new function (I wrote those too =D)
+	# See https://github.com/BWindey/c3c-bash-completions
+	if declare -F _c3c_complete &>/dev/null || declare -F _c3c &>/dev/null; then
 		_c3c_complete
 		return 0
 	fi
@@ -51,6 +53,7 @@ function _c3vm_complete() {
 		then
 			subcommand="${COMP_WORDS[$i]}"
 		elif [[ "${subcommand}" == "use" && "${COMP_WORDS[$i]}" == "--" ]]; then
+			# Hand completion over to `c3c`
 			(( i += 1 ))
 			try_complete_c3c "$i"
 			return
