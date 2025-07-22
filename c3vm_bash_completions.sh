@@ -6,7 +6,7 @@ function _complete_options() {
 
 function try_complete_c3c() {
 	local index="$1"
-	COMP_WORDS=("c3c" "${COMP_WORDS[@]:$index}")
+	COMP_WORDS=("c3c" "${COMP_WORDS[@]:${index}}")
 	COMP_CWORD=$(( COMP_CWORD - index + 1))
 	COMP_LINE="${COMP_WORDS[*]}"
 	COMP_POINT="${#COMP_LINE}"
