@@ -58,6 +58,10 @@ function get_available_versions() {
 	fi
 }
 
+function get_prebuilt_installed_versions() {
+	c3vm list --installed-plain 2>/dev/null
+}
+
 function _c3vm_complete() {
 	local current previous
 	current="${COMP_WORDS[COMP_CWORD]}"
@@ -89,6 +93,7 @@ function _c3vm_complete() {
 		"--installed" "-i"
 		"--available" "-a"
 		"--remote"
+		"--installed-plain"
 		"--remote-installed"
 		"--remote-builds"
 		"--remote-tags"
@@ -164,22 +169,30 @@ function _c3vm_complete() {
 			_complete_options "${current}" "${list_options[*]}"
 			;;
 		install)
-			local options="${install_options[*]}"
 			if [[ "${COMP_WORDS[*]}" != *" --from-source"* ]]; then
-				options+=( "$(get_available_versions)" )
+				install_options+=( "$(get_available_versions)" )
 			fi
-			_complete_options "${current}" "${options[*]}"
+			_complete_options "${current}" "${install_options[*]}"
 			;;
 		enable)
+			if [[ "${COMP_WORDS[*]}" != *" --from-source"* ]]; then
+				enable_options+=( "$(get_prebuilt_installed_versions)" )
+			fi
 			_complete_options "${current}" "${enable_options[*]}"
 			;;
 		update)
 			_complete_options "${current}" "${update_options[*]}"
 			;;
 		remove)
+			if [[ "${COMP_WORDS[*]}" != *" --from-source"* ]]; then
+				remove_options+=( "$(get_prebuilt_installed_versions)" )
+			fi
 			_complete_options "${current}" "${remove_options[*]}"
 			;;
 		use)
+			if [[ "${COMP_WORDS[*]}" != *" --from-source"* ]]; then
+				use_options+=( "$(get_prebuilt_installed_versions)" )
+			fi
 			_complete_options "${current}" "${use_options[*]}"
 			;;
 		add-local)
