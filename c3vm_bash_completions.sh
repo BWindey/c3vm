@@ -158,6 +158,12 @@ function _c3vm_complete() {
 		use)
 			_complete_options "${current}" "${use_options[*]}"
 			;;
+		add-local)
+			# Complete <path> with the normal bash completion for files
+			# I tried also adding the global options, but was not succesful.
+			compopt -o default
+			return
+			;;
 	esac
 }
 
