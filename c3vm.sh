@@ -1027,6 +1027,20 @@ function determine_download_release() {
 
 return_determine_directory=""
 function determine_directory_prebuilt() {
+	# HACK:
+	# this solves an issue I had with 'c3vm use latest-prerelease_xxx'
+	# not sure if this is the proper solution o.O
+	if [[ "$1" == "use" && "$version" == "latest-prerelease"* ]]; then
+		for directory in "${dir_compilers}/prebuilt/prereleases/${version}"*; do
+			if [[ "$return_determine_directory" ]]; then
+				echo "Found multiple preleases matching '${version}'" >&2
+				exit "$EXIT_INSTALL_UNKNOWN_VERSION"
+			fi
+			return_determine_directory="${dir_compilers}/prebuilt/prereleases/${version}"
+		done
+		return
+	fi
+
 	determine_download_release
 
 	local result="${dir_compilers}/prebuilt"
@@ -1141,7 +1155,7 @@ function enable_compiler_symlink() {
 }
 
 function download_known_release() {
-	determine_directory_prebuilt
+	determine_directory_prebuilt "download"
 	local output_dir="${return_determine_directory}"
 
 	if [[ "$output_dir" == *"latest-prerelease_" ]]; then
@@ -1760,7 +1774,7 @@ function use_from_directory() {
 }
 
 function use_prebuilt() {
-	determine_directory_prebuilt
+	determine_directory_prebuilt "use"
 	local found_version="${return_determine_directory}"
 
 	if ! [[ -d "$found_version" ]]; then
