@@ -39,6 +39,17 @@ in your `$PATH`.
 You can also clone this repository and move the script or symlink it to somewhere
 in your `$PATH`.
 
+### Tab completions
+Currently there are
+[bash completions](https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm_bash_completions.sh)
+(pretty good ones imo).
+You can download the script and then in your `~/.bashrc` do
+```sh
+source path/to/completion/script
+```
+If you're using another shell then Bash, I don't have an answer yet for you,
+but I'll gladly accept contributions that add completions for your shell.
+
 ### Manpage
 There also is a
 [manpage](https://raw.githubusercontent.com/BWindey/c3vm/refs/heads/main/c3vm.1).
