@@ -39,8 +39,9 @@ It can grab releases from Github or compile from scratch.
     --available, -a         List all available compilers (from Github)
 
     # Below are primarily used for the completion script
+    --installed-plain       List installed compilers in a plain way
     --remote-installed      List all installed remotes
-	--remote-builds         List all builds for a remote (can use --remote)
+    --remote-builds         List all builds for a remote (can use --remote)
     --remote-tags           List all tags for a remote (can use --remote)
     --remote-branches       List all branches for a remote (can use --remote)
 
@@ -431,6 +432,11 @@ while [[ "$1" ]]; do case $1 in
 		check_flag_for_subcommand "$1" "list"
 		check_only_one_list_filter
 		list_filter="available"
+		;;
+	--installed-plain)
+		check_flag_for_subcommand "$1" "list"
+		check_only_one_list_filter
+		list_filter="installed-plain"
 		;;
 	--remote-installed)
 		check_flag_for_subcommand "$1" "list"
@@ -824,10 +830,17 @@ function c3vm_status() {
 }
 
 function c3vm_list_installed() {
+	local plain="false"
+	if [[ "$1" == "installed-plain" ]]; then
+		plain="true"
+	fi
+
 	# This used to be a 'tree' call, but that is not something that is installed
 	# on most systems, so we do some manual work.
-	echo 'Prebuilt:'
-	echo '├── prereleases'
+	if [[ "$plain" == "false" ]]; then
+		echo 'Prebuilt:'
+		echo '├── prereleases'
+	fi
 
 	# First gather so we know how many so we can use different prefix for the last
 	local prereleases=()
@@ -840,14 +853,19 @@ function c3vm_list_installed() {
 
 	# Print the prereleases
 	for index in "${!prereleases[@]}"; do
-		if (( index < ${#prereleases[@]} - 1 )); then
+		if [[ "$plain" == "true" ]]; then
+			echo "${prereleases[$index]}"
+		elif (( index < ${#prereleases[@]} - 1 )); then
 			echo "│   ├── ${prereleases[$index]}"
 		else
 			echo "│   └── ${prereleases[$index]}"
 		fi
 	done
 
-	echo '└── releases'
+	if [[ "$plain" == "false" ]]; then
+		echo '└── releases'
+	fi
+
 	# Now the same for releases
 	local releases=()
 	for release in "${dir_compilers}/prebuilt/releases/"*; do
@@ -858,7 +876,9 @@ function c3vm_list_installed() {
 
 	# Print the releases
 	for index in "${!releases[@]}"; do
-		if (( index < ${#releases[@]} - 1 )); then
+		if [[ "$plain" == "true" ]]; then
+			echo "${releases[$index]}"
+		elif (( index < ${#releases[@]} - 1 )); then
 			echo "    ├── ${releases[$index]}"
 		else
 			echo "    └── ${releases[$index]}"
@@ -867,7 +887,11 @@ function c3vm_list_installed() {
 
 
 	# Seperator between prebuilt and from-source
-	echo ''
+	if [[ "$plain" == "false" ]]; then
+		echo ''
+	else
+		return
+	fi
 
 	# Sadly the `git/` folder is a loooot more work, as `tree` does not provide
 	# a neat way to filter and manipulate the output like we want.
@@ -955,8 +979,8 @@ function list_remote_branches() {
 
 function c3vm_list() {
 	case "$list_filter" in
-		"" | installed)
-			c3vm_list_installed
+		"" | installed | installed-plain)
+			c3vm_list_installed "$list_filter"
 			;;
 		available)
 			c3vm_list_available
