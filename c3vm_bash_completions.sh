@@ -20,6 +20,27 @@ function try_complete_c3c() {
 	fi
 }
 
+function get_available_checkouts() {
+	# Check if '--remote' is present, we need it. Else we don't (default remote).
+	local remote=""
+	local previous_written=""
+	for written in "${COMP_WORDS[@]}"; do
+		if [[ "$previous_written" == "--remote" ]]; then
+			remote="$written"
+			break
+		fi
+		previous_written="$written"
+	done
+
+	if [[ "$remote" == "" ]]; then
+		c3vm list --remote-tags 2>/dev/null
+		c3vm list --remote-branches 2>/dev/null
+	else
+		c3vm list --remote "$remote" --remote-tags 2>/dev/null
+		c3vm list --remote "$remote" --remote-branches 2>/dev/null
+	fi
+}
+
 # This function caches the result of `c3vm list --available` as that needs to
 # do a network request to fulfill. Caching has of course the risk of not being
 # up to date, so I'm decided to refresh once a day.
@@ -125,6 +146,9 @@ function _c3vm_complete() {
 			_complete_options "${current}" "${installed_remotes[*]}"
 			return
 			;;
+		--checkout)
+			_complete_options "$current" "$(get_available_checkouts)"
+			return
 	esac
 
 	# Then, if no subcommand was already given, complete with subcommands
