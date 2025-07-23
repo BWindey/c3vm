@@ -149,6 +149,8 @@ EXIT_ENABLE_MULTIPLE_VERSIONS_FOUND=61
 
 EXIT_ADDLOCAL_NONEXISTING_PATH=70
 EXIT_ADDLOCAL_INVALID_NAME=71
+EXIT_ADDLOCAL_ALREADY_ADDED=72
+EXIT_ADDLOCAL_ALREADY_BUSY=73
 
 EXIT_UPDATE_ON_IMMUTABLE=80
 EXIT_UPDATE_UNKNOWN_REV=81
@@ -651,13 +653,15 @@ case "$subcommand" in
 		fi
 		;;
 	add-local)
-		if [[ "$add_local_path" == "" || "$add_local_name" ]]; then
+		if [[ "$add_local_path" == "" || "$add_local_name" == "" ]]; then
 			echo "Expected path and name behind 'add-local' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
 		if ! [[ -e "$add_local_path" ]]; then
 			echo "Path '$add_local_path' does not exist." >&2
 			exit "$EXIT_ADDLOCAL_NONEXISTING_PATH"
+		else
+			add_local_path="$(realpath --no-symlinks "${add_local_path}")"
 		fi
 		if [[ "$add_local_name" =~ .*/.* ]]; then
 			echo "'add-local' <name> cannot contain slashes ('/')" >&2
@@ -1806,6 +1810,30 @@ function c3vm_use() {
 	fi
 }
 
+function c3vm_add_local() {
+	local local_dir="${dir_compilers}/git/local/${add_local_name}"
+
+	if [[ -e "${local_dir}" ]]; then
+		if [[ -d "${local_dir}" && -e "${local_dir}/CMakeLists.txt" ]]; then
+			echo "'${add_local_name}' already exists." >&2
+			exit "$EXIT_ADDLOCAL_ALREADY_ADDED"
+		else
+			echo "'${add_local_name}' already exists but has no 'CMakeLists.txt'."
+			echo -n "Remove '${local_dir}' and continue? [y/n] "
+			read -r answer
+			if [[ "$answer" != y ]]; then
+				echo "Aborting." >&2
+				exit "$EXIT_ADDLOCAL_ALREADY_BUSY"
+			else
+				rm -r "$local_dir"
+			fi
+		fi
+	fi
+
+	log_info "Checking '${add_local_path}' into c3vm in '${local_dir}'..."
+	ln -s "${add_local_path}" "${local_dir}"
+}
+
 case "$subcommand" in
 	status)
 		c3vm_status
@@ -1827,6 +1855,9 @@ case "$subcommand" in
 		;;
 	use)
 		c3vm_use
+		;;
+	add-local)
+		c3vm_add_local
 		;;
 	*)
 		echo "'${subcommand}' not implemented yet"
