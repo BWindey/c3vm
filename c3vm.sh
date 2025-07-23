@@ -833,6 +833,35 @@ function c3vm_status() {
 	esac
 }
 
+# This function will print the local / remote tree.
+# It takes in 'is_last="$1"' to know whether to print the | in front or not.
+# It takes in 'directory="$2"' which should be like 'remote' or 'local'
+function c3vm_print_build_tree() {
+	local is_last="$1"
+	local directory="$2"
+
+	local t_joint="├── "
+	local end_joint="└── "
+
+	local prefix_1
+	if [[ "$is_last" == "true" ]]; then
+		echo "${end_joint}${directory^}:"
+		prefix_1="    "
+	else
+		echo "${t_joint}${directory^}:"
+		prefix_1="│   "
+	fi
+
+	# All remotes/locals
+	local droopies=()
+	for dir in "${dir_compilers}/git/${directory}/"*; do
+		# Check if was empty or not valid
+		[[ "${dir}" == "*" || ! -d "${dir}" ]] && continue
+		droopies+=( "$dir" )
+		# TODO: ended here last night
+	done
+}
+
 function c3vm_list_installed() {
 	local plain="false"
 	if [[ "$1" == "installed-plain" ]]; then
@@ -902,6 +931,7 @@ function c3vm_list_installed() {
 	# TODO: locals
 
 	declare -A remote_targets
+	declare -A local_targets
 
 	# Gather all remotes with their build-targets
 	for remote_path in "${dir_compilers}/git/remote/"*; do
@@ -920,29 +950,78 @@ function c3vm_list_installed() {
 		done
 
 		if [[ "${#targets[@]}" -eq 0 ]]; then
-			echo "Remote '$remote_name' has empty 'build/' folder!" >&2
+			remote_targets["$remote_name"]="__no_targets__"
 			continue
 		fi
 
 		remote_targets["$remote_name"]="${targets[*]}"
 	done
 
+	for local_path in "${dir_compilers}/git/local/"*; do
+		local_name="$(basename "$local_path")"
+		local_linked="$(readlink "$local_path")"
+		build_dir="${local_linked}/build"
+
+		if [[ ! -d "$build_dir" ]]; then
+			local_targets["$local_name"]="__no_targets__"
+			continue
+		fi
+
+		targets=()
+		for target in "$build_dir"/*; do
+			[[ -d "$target" ]] && targets+=("$(basename "$target")")
+		done
+
+		if [[ "${#targets[@]}" -eq 0 ]]; then
+			local_targets["$local_name"]="__no_targets__"
+			continue
+		fi
+
+		local_targets["$local_name"]="${targets[*]}"
+	done
+
 	# Print it!
 	echo "From source:"
+	echo "├── Remotes"
 
 	# Get sorted list of remotes
 	readarray -t remotes < <(printf '%s\n' "${!remote_targets[@]}" | sort)
 
 	for r_index in "${!remotes[@]}"; do
+		[[ "$r_index" == "" ]] && break
 		remote="${remotes[$r_index]}"
-		prefix_1="└──"
-		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="├──"
+		prefix_1="│   └──"
+		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="│   ├──"
 		echo "${prefix_1} ${remote}"
 
-		prefix_1="    "
-		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="│   "
+		prefix_1="│       "
+		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="│   │   "
 
 		IFS=' ' read -r -a targets <<< "${remote_targets[$remote]}"
+		for t_index in "${!targets[@]}"; do
+			prefix="└──"
+			[[ $t_index -lt $((${#targets[@]} - 1)) ]] && prefix="├──"
+			echo "${prefix_1}${prefix} ${targets[$t_index]}"
+		done
+	done
+
+	echo "└── Locals"
+
+	# Get sorted list of locals
+	readarray -t locals < <(printf '%s\n' "${!local_targets[@]}" | sort)
+
+	for r_index in "${!locals[@]}"; do
+		[[ "${locals[*]}" == "" ]] && break
+		locale="${locals[$r_index]}"
+		prefix_1="    └──"
+		[[ $r_index -lt $((${#locals[@]} - 1)) ]] && prefix_1="    ├──"
+		echo "${prefix_1} ${locale}"
+
+		prefix_1="        "
+		[[ $r_index -lt $((${#locals[@]} - 1)) ]] && prefix_1="    │   "
+
+		echo "${local_targets[$locale]}"
+		IFS=' ' read -r -a targets <<< "${local_targets[$locale]}"
 		for t_index in "${!targets[@]}"; do
 			prefix="└──"
 			[[ $t_index -lt $((${#targets[@]} - 1)) ]] && prefix="├──"
