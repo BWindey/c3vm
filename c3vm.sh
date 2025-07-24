@@ -1596,7 +1596,9 @@ function install_local() {
 }
 
 function c3vm_install() {
-	if [[ "$from_source" == "true" ]]; then
+	if [[ "$local_name" != "" ]]; then
+		install_local
+	elif [[ "$from_source" == "true" ]]; then
 		install_from_source
 	else
 		download_known_release
