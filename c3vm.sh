@@ -1530,6 +1530,36 @@ function install_from_source() {
 	fi
 }
 
+function install_setup_local_build_folders() {
+	local local_dir="$1"
+	local build_dir="${local_dir}/build"
+
+	if [[ "$debug_version" == "true" ]]; then
+		build_dir="${build_dir}/release"
+	else
+		build_dir="${build_dir}/debug"
+	fi
+
+	if [[ -e "${build_dir}" ]]; then
+		if [[ ! -d "${build_dir}" ]]; then
+			echo "'${build_dir}' exists but is not a directory."
+			echo "Permission to remove it and continue? [y/n] "
+			read -r ans
+			if [[ "$ans" != y ]]; then
+				echo "Aborting." >&2
+				exit "$EXIT_INSTALL_BUILD_DIR"
+			elif ! rm "${build_dir}"; then
+				echo "Failed to remove '${build_dir}'" >&2
+				exit "$EXIT_INSTALL_BUILD_DIR"
+			fi
+		fi
+	else
+		mkdir -p "${build_dir}"
+	fi
+
+	return_install_setup_build_folders="${build_dir}"
+}
+
 function install_local() {
 	local local_dir="${dir_compilers}/git/local/${local_name}"
 
@@ -1546,7 +1576,14 @@ function install_local() {
 
 	check_build_tools_available
 
-	# TODO: finish this local install
+	install_setup_local_build_folders "${local_dir}"
+	local build_dir="${return_install_setup_build_folders}"
+
+	actually_build_from_source "${local_dir}" "${build_dir}"
+
+	if [[ "$enable_after" == "true" ]]; then
+		enable_compiler_symlink "${build_dir}"
+	fi
 }
 
 function c3vm_install() {
