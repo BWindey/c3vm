@@ -1544,9 +1544,9 @@ function install_setup_local_build_folders() {
 	local build_dir="${local_dir}/build"
 
 	if [[ "$debug_version" == "true" ]]; then
-		build_dir="${build_dir}/release"
-	else
 		build_dir="${build_dir}/debug"
+	else
+		build_dir="${build_dir}/release"
 	fi
 
 	if [[ -e "${build_dir}" ]]; then
