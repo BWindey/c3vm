@@ -168,7 +168,7 @@ EXIT_USE_MULTIPLE_EXECUTABLES_FOUND=101
 function ensure_directories() {
 	for directory in "$dir_compilers" "$dir_bin_link"; do
 		if ! [[ -e "$directory" && -d "$directory" ]]; then
-			echo "$directory does not exist, but is needed for this script."
+			echo "'${directory}' does not exist, but is needed for this script."
 			echo -n "Create directory? [y/n] "
 			read -r ans
 			if [[ "$ans" == y ]]; then
@@ -1525,7 +1525,7 @@ function install_from_source() {
 
 	actually_build_from_source "${git_dir}" "${build_dir}"
 
-	if [[ "$enable_after" ]]; then
+	if [[ "$enable_after" == "true" ]]; then
 		enable_compiler_symlink "${build_dir}"
 	fi
 }
