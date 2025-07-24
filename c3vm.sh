@@ -858,7 +858,52 @@ function c3vm_print_build_tree() {
 		# Check if was empty or not valid
 		[[ "${dir}" == "*" || ! -d "${dir}" ]] && continue
 		droopies+=( "$dir" )
-		# TODO: ended here last night
+	done
+
+	# Sort
+	mapfile -t droopies < <(printf '%s\n' "${droopies[@]}" | sort)
+
+	# Loop with index
+	local name index target targets t_index t_name mid_joint
+	for index in "${!droopies[@]}"; do
+		[[ "$index" == "" ]] && continue
+
+		name="$(basename "${droopies[${index}]}")"
+
+		if [[ $(( index + 1 )) == "${#droopies[@]}" ]]; then
+			echo "${prefix_1}${end_joint}${name}"
+			mid_joint="    "
+		else
+			echo "${prefix_1}${t_joint}${name}"
+			mid_joint="│   "
+		fi
+
+		# All build targets
+		targets=()
+		for target in "${droopies[${index}]}/build/"*; do
+			# Check if was empty or not valid
+			[[ "${target}" == "*" || ! -d "${target}" ]] && continue
+
+			targets+=( "$target" )
+		done
+
+		# Sort
+		mapfile -t targets < <(printf '%s\n' "${targets[@]}" | sort --reverse)
+
+		# Skip when no targets
+		[[ "${targets[*]}" == "" ]] && continue
+
+		for t_index in "${!targets[@]}"; do
+			[[ "$t_index" == "" ]] && continue
+
+			t_name="$(basename "${targets[${t_index}]}")"
+
+			if [[ $(( t_index + 1 )) == "${#targets[@]}" ]]; then
+				echo "${prefix_1}${mid_joint}${end_joint}${t_name}"
+			else
+				echo "${prefix_1}${mid_joint}${t_joint}${t_name}"
+			fi
+		done
 	done
 }
 
@@ -871,8 +916,8 @@ function c3vm_list_installed() {
 	# This used to be a 'tree' call, but that is not something that is installed
 	# on most systems, so we do some manual work.
 	if [[ "$plain" == "false" ]]; then
-		echo 'Prebuilt:'
-		echo '├── prereleases'
+		echo "Prebuilt:"
+		echo "├── Prereleases:"
 	fi
 
 	# First gather so we know how many so we can use different prefix for the last
@@ -896,7 +941,7 @@ function c3vm_list_installed() {
 	done
 
 	if [[ "$plain" == "false" ]]; then
-		echo '└── releases'
+		echo "└── Releases"
 	fi
 
 	# Now the same for releases
@@ -921,119 +966,20 @@ function c3vm_list_installed() {
 
 	# Seperator between prebuilt and from-source
 	if [[ "$plain" == "false" ]]; then
-		echo ''
+		echo ""
 	else
 		return
 	fi
 
-	# Sadly the `git/` folder is a loooot more work, as `tree` does not provide
-	# a neat way to filter and manipulate the output like we want.
-	# TODO: locals
-
-	declare -A remote_targets
-	declare -A local_targets
-
-	# Gather all remotes with their build-targets
-	for remote_path in "${dir_compilers}/git/remote/"*; do
-		remote_name="$(basename "$remote_path")"
-		build_dir="${remote_path}/build"
-
-		# Skip remotes without build/ directory
-		if [[ ! -d "$build_dir" ]]; then
-			remote_targets["$remote_name"]="__no_targets__"
-			continue
-		fi
-
-		targets=()
-		for target in "$build_dir"/*; do
-			[[ -d "$target" ]] && targets+=("$(basename "$target")")
-		done
-
-		if [[ "${#targets[@]}" -eq 0 ]]; then
-			remote_targets["$remote_name"]="__no_targets__"
-			continue
-		fi
-
-		remote_targets["$remote_name"]="${targets[*]}"
-	done
-
-	for local_path in "${dir_compilers}/git/local/"*; do
-		local_name="$(basename "$local_path")"
-		local_linked="$(readlink "$local_path")"
-		build_dir="${local_linked}/build"
-
-		if [[ ! -d "$build_dir" ]]; then
-			local_targets["$local_name"]="__no_targets__"
-			continue
-		fi
-
-		targets=()
-		for target in "$build_dir"/*; do
-			[[ -d "$target" ]] && targets+=("$(basename "$target")")
-		done
-
-		if [[ "${#targets[@]}" -eq 0 ]]; then
-			local_targets["$local_name"]="__no_targets__"
-			continue
-		fi
-
-		local_targets["$local_name"]="${targets[*]}"
-	done
-
-	# Print it!
 	echo "From source:"
-	echo "├── Remotes"
-
-	# Get sorted list of remotes
-	readarray -t remotes < <(printf '%s\n' "${!remote_targets[@]}" | sort)
-
-	for r_index in "${!remotes[@]}"; do
-		[[ "$r_index" == "" ]] && break
-		remote="${remotes[$r_index]}"
-		prefix_1="│   └──"
-		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="│   ├──"
-		echo "${prefix_1} ${remote}"
-
-		prefix_1="│       "
-		[[ $r_index -lt $((${#remotes[@]} - 1)) ]] && prefix_1="│   │   "
-
-		IFS=' ' read -r -a targets <<< "${remote_targets[$remote]}"
-		for t_index in "${!targets[@]}"; do
-			prefix="└──"
-			[[ $t_index -lt $((${#targets[@]} - 1)) ]] && prefix="├──"
-			echo "${prefix_1}${prefix} ${targets[$t_index]}"
-		done
-	done
-
-	echo "└── Locals"
-
-	# Get sorted list of locals
-	readarray -t locals < <(printf '%s\n' "${!local_targets[@]}" | sort)
-
-	for r_index in "${!locals[@]}"; do
-		[[ "${locals[*]}" == "" ]] && break
-		locale="${locals[$r_index]}"
-		prefix_1="    └──"
-		[[ $r_index -lt $((${#locals[@]} - 1)) ]] && prefix_1="    ├──"
-		echo "${prefix_1} ${locale}"
-
-		prefix_1="        "
-		[[ $r_index -lt $((${#locals[@]} - 1)) ]] && prefix_1="    │   "
-
-		echo "${local_targets[$locale]}"
-		IFS=' ' read -r -a targets <<< "${local_targets[$locale]}"
-		for t_index in "${!targets[@]}"; do
-			prefix="└──"
-			[[ $t_index -lt $((${#targets[@]} - 1)) ]] && prefix="├──"
-			echo "${prefix_1}${prefix} ${targets[$t_index]}"
-		done
-	done
+	c3vm_print_build_tree "false" "remote"
+	c3vm_print_build_tree "true" "local"
 }
 
 function get_available_versions() {
 	log_verbose "Getting the available version from GitHub..."
 	curl -s "https://api.github.com/repos/${remote}/releases" |
-		jq -r '.[].tag_name' |
+		jq -r ".[].tag_name" |
 		grep "^\(v[0-9]\+\(\.[0-9]\+\)\{2\}\|latest-prerelease\)$" |
 		grep -v "v0.5.*"
 }
@@ -1280,7 +1226,7 @@ function download_known_release() {
 	local file_size
 	file_size=$(wc -c < "${output_file}") # '<' to only get count, no name
 	if [[ "$file_size" -lt 1000000 ]] ||  # < 1 MB (normal compiler is >40MB)
-		grep -qE '<html|Not Found' "${output_file}"
+		grep -qE "<html|Not Found" "${output_file}"
 	then
 		echo "Download failed or invalid archive received." >&2
 		rm "${output_file}"
