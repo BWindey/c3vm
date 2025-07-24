@@ -40,6 +40,7 @@ It can grab releases from Github or compile from scratch.
 
     # Below are primarily used for the completion script
     --installed-plain       List installed compilers in a plain way
+    --local-installed       List all local checked in compilers.
     --remote-installed      List all installed remotes
     --remote-builds         List all builds for a remote (can use --remote)
     --remote-tags           List all tags for a remote (can use --remote)
@@ -441,6 +442,11 @@ while [[ "$1" ]]; do case $1 in
 		check_flag_for_subcommand "$1" "list"
 		check_only_one_list_filter
 		list_filter="installed-plain"
+		;;
+	--local-installed)
+		check_flag_for_subcommand "$1" "list"
+		check_only_one_list_filter
+		list_filter="local-installed"
 		;;
 	--remote-installed)
 		check_flag_for_subcommand "$1" "list"
@@ -1043,6 +1049,9 @@ function c3vm_list() {
 			;;
 		available)
 			c3vm_list_available
+			;;
+		local-installed)
+			ls -1 "${dir_compilers}/git/local/"
 			;;
 		remote-installed)
 			list_remote_installed
