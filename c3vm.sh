@@ -56,12 +56,14 @@ It can grab releases from Github or compile from scratch.
                             be tweaked with other flags.
     --checkout <ref>        Specify branch, tag or commit for --from-source as
                             you would pass it to git.
-    --local <name>          Use a local repository with name <name>
     --remote <remote>       Use a remote for fetching prebuilt binaries from
                             (still from Github) or from fetching sourcecode,
                             defaults to c3lang/c3c.
                             Only supports Github remotes with tags/releases
                             following versions vx.y.z and 'latest-prerelease'.
+    --local <name>          Use a local repository with name <name>.
+                            Does not work with --from-source, --checkout and
+                            --remote.
     --jobs, -j <count>      Number of jobs to use with 'make -j <job-count>'
                             (Default 16)
 
@@ -481,7 +483,10 @@ while [[ "$1" ]]; do case $1 in
 		;;
 	--checkout)
 		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
-		if [[ "$#" -le 1 ]]; then
+		if [[ "$local_name" != "" ]]; then
+			echo "Cannot specify '--checkout' and '--local' at the same time" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		elif [[ "$#" -le 1 ]]; then
 			echo "Expected argument <rev> after --checkout" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
@@ -493,6 +498,12 @@ while [[ "$1" ]]; do case $1 in
 		if [[ "$from_source" == "true" ]]; then
 			echo "Cannot specify '--from-source' and '--local' at the same time" >&2
 			exit "$EXIT_CONTRADICTING_FLAGS"
+        elif [[ "$remote" != "c3lang/c3c" ]]; then
+			echo "Cannot specify '--remote' and '--local' at the same time" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+        elif [[ "$from_rev" != "default" ]]; then
+			echo "Cannot specify '--checkout' and '--local' at the same time" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
 		elif [[ "$#" -le 1 ]]; then
 			echo "Expected argument <name> after --local" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -502,7 +513,10 @@ while [[ "$1" ]]; do case $1 in
 		;;
 	--remote)
 		check_flag_for_subcommand "$1" "install" "enable" "use" "remove" "list"
-		if [[ "$#" -le 1 ]]; then
+		if [[ "$local_name" != "" ]]; then
+			echo "Cannot specify '--remote' and '--local' at the same time" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		elif [[ "$#" -le 1 ]]; then
 			echo "Expected <remote> behind --remote" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		elif [[ ! "$2" =~ ^[^/]+/[^/]+$  ]]; then
@@ -707,6 +721,15 @@ function is_arch_distro() {
 		'^ID(_LIKE)?=["'\'']\?arch["'\'']\?$' \
 		/etc/os-release
 	return "$?"
+}
+
+function check_build_tools_available() {
+	for command in "cmake" "make"; do
+		if ! command -v "$command" >/dev/null; then
+			echo "Missing '${command}' to build"
+			exit "$EXIT_MISSING_TOOLS"
+		fi
+	done
 }
 
 # NOTE:
@@ -1460,7 +1483,6 @@ function install_setup_build_folders() {
 		fi
 	fi
 
-	# Enter build directory
 	return_install_setup_build_folders="${build_dir}"
 }
 
@@ -1492,16 +1514,11 @@ function install_from_source() {
 	fi
 
 	if ! [[ -e "${git_dir}/CMakeLists.txt" ]]; then
-		echo "Couldn't find CMakeLists.txt inide ${git_dir}, cannot build." >&2
+		echo "Couldn't find CMakeLists.txt inide '${git_dir}', cannot build" >&2
 		exit "$EXIT_INSTALL_NO_CMAKE"
 	fi
 
-	for command in "cmake" "make"; do
-		if ! command -v "$command" >/dev/null; then
-			echo "Missing '${command}' to build"
-			exit "$EXIT_MISSING_TOOLS"
-		fi
-	done
+	check_build_tools_available
 
 	install_setup_build_folders "${git_dir}"
 	local build_dir="${return_install_setup_build_folders}"
@@ -1511,6 +1528,25 @@ function install_from_source() {
 	if [[ "$enable_after" ]]; then
 		enable_compiler_symlink "${build_dir}"
 	fi
+}
+
+function install_local() {
+	local local_dir="${dir_compilers}/git/local/${local_name}"
+
+	if [[ ! -e "${local_dir}" ]]; then
+		echo "'${local_dir}' does not exist" >&2
+		exit "$EXIT_INSTALL_NO_DIR"
+	elif [[ ! -d "${local_dir}" ]]; then
+		echo "'${local_dir}' is not a directory" >&2
+		exit "$EXIT_INSTALL_NO_DIR"
+	elif [[ ! -e "${local_dir}/CMakeLists.txt" ]]; then
+		echo "Couldn't find CMakeLists.txt inside '${local_dir}', cannot build" >&2
+		exit "$EXIT_INSTALL_NO_CMAKE"
+	fi
+
+	check_build_tools_available
+
+	# TODO: finish this local install
 }
 
 function c3vm_install() {
