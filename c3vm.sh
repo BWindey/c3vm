@@ -473,6 +473,10 @@ while [[ "$1" ]]; do case $1 in
 
 	--from-source)
 		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
+		if [[ "$local_name" != "" ]]; then
+			echo "Cannot specify '--from-source' and '--local' at the same time" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		fi
 		from_source="true"
 		;;
 	--checkout)
@@ -486,7 +490,10 @@ while [[ "$1" ]]; do case $1 in
 		;;
 	--local)
 		check_flag_for_subcommand "$1" "install" "enable" "use" "remove"
-		if [[ "$#" -le 1 ]]; then
+		if [[ "$from_source" == "true" ]]; then
+			echo "Cannot specify '--from-source' and '--local' at the same time" >&2
+			exit "$EXIT_CONTRADICTING_FLAGS"
+		elif [[ "$#" -le 1 ]]; then
 			echo "Expected argument <name> after --local" >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
