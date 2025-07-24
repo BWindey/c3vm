@@ -94,6 +94,7 @@ function _c3vm_complete() {
 		"--available" "-a"
 		"--remote"
 		"--installed-plain"
+		"--local-installed"
 		"--remote-installed"
 		"--remote-builds"
 		"--remote-tags"
@@ -154,6 +155,13 @@ function _c3vm_complete() {
 		--checkout)
 			_complete_options "$current" "$(get_available_checkouts)"
 			return
+			;;
+		--local)
+			local installed_locals
+			mapfile -t installed_locals < <(c3vm list --local-installed)
+			_complete_options "$current" "${installed_locals[*]}"
+			return
+			;;
 	esac
 
 	# Then, if no subcommand was already given, complete with subcommands
@@ -169,7 +177,10 @@ function _c3vm_complete() {
 			_complete_options "${current}" "${list_options[*]}"
 			;;
 		install)
-			if [[ "${COMP_WORDS[*]}" != *" --from-source"* ]]; then
+			if [[
+				"${COMP_WORDS[*]}" != *" --from-source"*
+				&& "${COMP_WORDS[*]}" != *" --local"*
+			]]; then
 				install_options+=( "$(get_available_versions)" )
 			fi
 			_complete_options "${current}" "${install_options[*]}"
