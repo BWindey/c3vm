@@ -78,14 +78,17 @@ It can grab releases from Github or compile from scratch.
                             (Default 16), only for from-source builds.
 
  - Remove command:
+    # For prebuilts
     --interactive, -I       Prompt before removing a version
     --fixed-match, -F       Interpret <version> as fixed-string instead of
                             regex pattern
     --inactive              Remove all installed compilers except for the
                             currently enabled compiler
+    # General options
     --dry-run               Do everything and show everything except for actually
                             removing.
     --allow-current         Allow removing the current active version (default false).
+    # For from-source, use same flags as 'c3vm install' to select local/remote
     --entire-remote         Remove the entire remote as opposed to a single target.
 
  - Use command:
@@ -698,7 +701,12 @@ case "$subcommand" in
 		fi
 		;;
 	remove)
-		if [[ "$version" == "" && "$remove_inactive" != "true" && "$from_source" != "true" ]]
+		if [[
+			"$version" == ""
+			&& "$remove_inactive" != "true"
+			&& "$from_source" != "true"
+			&& "$local_name" == ""
+		]]
 		then
 			echo "Expected version behind 'remove' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
@@ -1926,8 +1934,22 @@ function c3vm_remove_from_source() {
 	fi
 }
 
+function c3vm_remove_local() {
+	local path="${dir_compilers}/git/local/${local_name}"
+
+	if [[ ! -h "$path" ]]; then
+		echo "'${local_name}' is not a recognized name." >&2
+		exit "$EXIT_REMOVE_NOT_FOUND"
+	fi
+
+	log_info "Checking '${local_name}' out of c3vm..."
+	unlink "${path}"
+}
+
 function c3vm_remove() {
-	if [[ "$from_source" == "true" ]]; then
+	if [[ "$local_name" != "" ]]; then
+		c3vm_remove_local
+	elif [[ "$from_source" == "true" ]]; then
 		c3vm_remove_from_source
 	else
 		c3vm_remove_prebuilt
