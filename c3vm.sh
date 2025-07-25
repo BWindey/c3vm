@@ -739,7 +739,7 @@ function log_verbose() {
 function is_arch_distro() {
 	grep --quiet --ignore-case \
 		'^ID(_LIKE)?=["'\'']\?arch["'\'']\?$' \
-		/etc/os-release
+		/etc/os-release 2>/dev/null
 	return "$?"
 }
 
@@ -1397,7 +1397,7 @@ function ensure_remote_git_directory() {
 		echo "      If something goes wrong, please look at https://github.com/c3lang/c3c/?tab=readme-ov-file#compiling"
 		echo "      for your platforms instructions, and modify the function 'actually_build_from_source'"
 		echo "      accordingly. (Arch Linux is known to require modification.)"
-		echo "      The function can be found just below this scripts argument parsing, around line 580."
+		echo "      The function can be found just below this scripts argument parsing, around line 758."
 	fi
 }
 
