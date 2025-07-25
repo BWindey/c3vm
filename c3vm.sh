@@ -2044,8 +2044,33 @@ function use_from_source() {
 	use_from_directory "$return_determine_git_build_dir"
 }
 
+function use_local() {
+	local local_path="${dir_compilers}/git/local/${local_name}"
+
+	if [[ ! -d "${local_path}" ]]; then
+		echo "'${local_name}' is not recognized by c3vm" >&2
+		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+	fi
+
+	local_path="${local_path}/build/"
+	if [[ "$debug_version" == "true" ]]; then
+		local_path="${local_path}/debug"
+	else
+		local_path="${local_path}/release"
+	fi
+
+	if [[ ! -d "${local_path}" ]]; then
+		echo "Did not find the requested buildfolder (${local_path})" >&2
+		exit "$EXIT_USE_VERSION_NOT_FOUND"
+	fi
+
+	use_from_directory "${local_path}"
+}
+
 function c3vm_use() {
-	if [[ "$from_source" == "true" ]]; then
+	if [[ "$local_name" != "" ]]; then
+		use_local
+	elif [[ "$from_source" == "true" ]]; then
 		use_from_source
 	else
 		use_prebuilt
