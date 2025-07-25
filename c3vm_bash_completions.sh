@@ -132,6 +132,11 @@ function _c3vm_complete() {
 		"--dry-run"
 		"--allow-current"
 		"--entire-remote"
+		"--debug"
+		"--from-source"
+		"--checkout"
+		"--local"
+		"--remote"
 	)
 	local use_options=(
 		"${global_options[@]}"
