@@ -1173,6 +1173,22 @@ function ensure_download_directory() {
 	fi
 }
 
+function is_symlink_local_c3vm() {
+	local symlink actual locale local_path
+	symlink="$1"
+	actual="$(readlink "$symlink")"
+
+	for locale in "${dir_compilers}/git/local/"*; do
+		local_path="$(readlink "$locale")"
+		case "$actual" in
+			"${local_path}/build/release/c3c" | "${local_path}/build/debug/c3c")
+				return 0
+				;;
+		esac
+	done
+	return 1
+}
+
 function enable_compiler_symlink() {
 	local output_dir="$1"
 	local symlink_location="$HOME/.local/bin/c3c"
@@ -1195,7 +1211,9 @@ function enable_compiler_symlink() {
 				echo "Cannot continue before broken link is removed or fixed." >&2
 				exit "$EXIT_ENABLE_BROKEN_SYMLINK"
 			fi
-		elif [[ "$(readlink "$symlink_location")" != "$dir_compilers"* ]]; then
+		elif ! is_symlink_local_c3vm "${symlink_location}" && [[
+			"$(readlink "$symlink_location")" != "$dir_compilers"*
+		]]; then
 			echo "Symlink is not managed by 'c3vm' (points to '$(readlink "$symlink_location")')"
 			echo -n "Unlink and link c3vm-installed version? [y/n] "
 			read -r ans
