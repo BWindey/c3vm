@@ -1,12 +1,27 @@
 # C3VM - a version manager for [c3c](https://github.com/c3lang/c3c)
 
 `c3vm` is a bash-script that manages versions of the C3 compiler.
+It can download versions from GitHub releases, clone a GitHub repo and build from
+source, or even check in a local compiler from source and build it.
+
+### Caveats
+As this is a bash script, and I developped it, this probably will not work on
+everyones computer. I heard of issues from someone on Arch Linux, and Windows is
+just outright not supported.
+
+For Linux or MacOS, you can easily edit the script if needed (f.e.
+changing build steps or the location `c3vm` stores the data).
+
+If you add stuff that still supports the current supported platform (aka mine :P),
+and now also supports yours, then please do open a PR to get it merged in.
+
 
 > [!WARNING]
 > `c3vm` is still in beta, the `add-local` subcommand and related functionality
 > is missing, and some flags and such are also not there yet.
 > Feel free to use it, to report bugs, to share ideas.
 > Installation instructions will improve when this script is considered finished.
+
 
 ## Example useage:
 ```sh
@@ -69,13 +84,6 @@ explain it to you.
     currently enabled compiler under an alias (probably git/snapshots/<alias>/)
     that allows you to quickly snapshot the version, update and compare
     behaviour.
-
-- Some kind of alias to create like 'c3c_debug' or whatever as available
-    executable. Not trivial as the script needs to know which aliasses
-    are from c3vm. Might not be implemented ever.
-
-- A bash completion script for this bash script. Because the greatest ally
-    for your commandline adventures is good old `<tab><tab>`.
 
 
 ## For @foxkiana
