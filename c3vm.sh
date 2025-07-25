@@ -157,6 +157,8 @@ EXIT_ADDLOCAL_ALREADY_BUSY=73
 
 EXIT_UPDATE_ON_IMMUTABLE=80
 EXIT_UPDATE_UNKNOWN_REV=81
+EXIT_UPDATE_NOT_MANAGED_BY_C3VM=82
+EXIT_UPDATE_NO_C3C_IN_PATH=83
 
 EXIT_REMOVE_FAILED_RM=90
 EXIT_REMOVE_NOT_FOUND=91
@@ -1679,7 +1681,6 @@ function c3vm_enable() {
 
 function update_from_source() {
 	local current_active="${1#"${dir_compilers}/git/"}"
-	# TODO: local
 
 	# Extract the needed info from the current-active-path
 	current_active="${current_active#remote/}"
@@ -1751,9 +1752,42 @@ function update_prebuilt() {
 	download_known_release
 }
 
+function try_update_local() {
+	local current_active
+	current_active="$(which c3c 2>/dev/null)"
+
+	if [[ "$current_active" == "" ]]; then
+		echo "No c3c in \$PATH." >&2
+		exit "$EXIT_UPDATE_NO_C3C_IN_PATH"
+	elif ! is_symlink_local_c3vm "${current_active}"; then
+		echo "Current compiler is not managed by c3vm (${current_active})." >&2
+		exit "$EXIT_UPDATE_NOT_MANAGED_BY_C3VM"
+	fi
+
+	# Resolve symlink
+	current_active="$(readlink "${current_active}")"
+
+	# Now we're sure it's of the form '.../build/{release/debug}/c3c'
+	# Let's extract the source dir and output dir
+	local output_dir="${current_active%/c3c}"
+
+	local source_dir="${output_dir}"
+
+	if [[ "${source_dir}" == *"/release" ]]; then
+		source_dir="${source_dir%/release}"
+	elif [[ "${source_dir}" == *"/debug" ]]; then
+		source_dir="${source_dir%/debug}"
+	fi
+
+	source_dir="${source_dir%/build}"
+
+	actually_build_from_source "${source_dir}" "${output_dir}"
+}
+
 current_active_version=""
 function get_current_version() {
 	current_active_version="$(which c3c 2>/dev/null | xargs readlink 2>/dev/null)"
+	log_verbose "Checking currently active: '${current_active_version}'"
 }
 
 function c3vm_update() {
@@ -1765,6 +1799,9 @@ function c3vm_update() {
 			;;
 		"${dir_compilers}/prebuilt/"*)
 			update_prebuilt "$current_active_version"
+			;;
+		*)
+			try_update_local
 			;;
 	esac
 }
