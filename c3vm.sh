@@ -799,6 +799,34 @@ function actually_build_from_source() {
 	fi
 }
 
+return_is_symlink_local_name=""
+return_is_symlink_local_path=""
+return_is_symlink_local_type=""
+function is_symlink_local_c3vm() {
+	local symlink actual locale local_path
+	symlink="$1"
+	actual="$(readlink "$symlink")"
+
+	for locale in "${dir_compilers}/git/local/"*; do
+		local_path="$(readlink "$locale")"
+		case "$actual" in
+			"${local_path}/build/release/c3c" )
+				return_is_symlink_local_path="${local_path}/"
+				return_is_symlink_local_name="$(basename "${locale}")"
+				return_is_symlink_local_type="release"
+				return 0
+				;;
+			"${local_path}/build/debug/c3c")
+				return_is_symlink_local_path="${local_path}/"
+				return_is_symlink_local_name="$(basename "${locale}")"
+				return_is_symlink_local_type="debug"
+				return 0
+				;;
+		esac
+	done
+	return 1
+}
+
 function c3vm_status() {
 	local c3c_path
 	local enabled_compiler
@@ -815,6 +843,18 @@ function c3vm_status() {
 
 	enabled_compiler="$(readlink "$c3c_path")"
 
+	if is_symlink_local_c3vm "$c3c_path"; then
+		local local_path local_name type_build
+
+		local_path="${return_is_symlink_local_path}"
+		local_name="${return_is_symlink_local_name}"
+		type_build="${return_is_symlink_local_type}"
+
+		echo "Current active compiler: compiled from source from local '${local_name}'."
+		echo "Path '${local_path}', ${type_build} build."
+		exit "$EXIT_OK"
+	fi
+
 	if ! [[ "$enabled_compiler" == "$dir_compilers"* ]]; then
 		echo "Currently enabled compiler is not managed by c3vm!"
 		exit "$EXIT_OK"
@@ -829,9 +869,6 @@ function c3vm_status() {
 			rest="${rest#*/}"
 
 			case "$git_type" in
-				local)
-					# TODO:
-					;;
 				remote)
 					local remote_name="${rest%%/*}"
 					rest="${rest#*build/}"
@@ -1175,22 +1212,6 @@ function ensure_download_directory() {
 	fi
 }
 
-function is_symlink_local_c3vm() {
-	local symlink actual locale local_path
-	symlink="$1"
-	actual="$(readlink "$symlink")"
-
-	for locale in "${dir_compilers}/git/local/"*; do
-		local_path="$(readlink "$locale")"
-		case "$actual" in
-			"${local_path}/build/release/c3c" | "${local_path}/build/debug/c3c")
-				return 0
-				;;
-		esac
-	done
-	return 1
-}
-
 function enable_compiler_symlink() {
 	local output_dir="$1"
 	local symlink_location="$HOME/.local/bin/c3c"
@@ -1400,7 +1421,6 @@ function git_rev_is_branch() {
 	local rev="$1"
 	local git_dir="$2"
 
-	# TODO: this only works for remote branches, not local ones.
 	git -C "$git_dir" branch -r --list "origin/${rev}" | grep -F --quiet "origin/${rev}"
 	return "$?"
 }
