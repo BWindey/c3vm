@@ -679,7 +679,11 @@ esac; shift; done
 # F.e.'c3vm remove --interactive v0.6*' is valid
 case "$subcommand" in
 	enable | use)
-		if [[ "$from_source" != "true" && "$version" == "" ]]; then
+		if [[
+			"$from_source" != "true"
+			&& "$version" == ""
+			&& "$local_name" == ""
+		]]; then
 			echo "Expected version behind '${subcommand}' subcommand." >&2
 			exit "$EXIT_FLAG_ARGS_ISSUE"
 		fi
@@ -1699,8 +1703,33 @@ function enable_from_source() {
 	enable_compiler_symlink "$build_dir"
 }
 
+function enable_local() {
+	local local_path="${dir_compilers}/git/local/${local_name}"
+
+	if [[ ! -d "${local_path}" ]]; then
+		echo "'${local_name}' is not recognized by c3vm" >&2
+		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+	fi
+
+	local_path="${local_path}/build/"
+	if [[ "$debug_version" == "true" ]]; then
+		local_path="${local_path}/debug"
+	else
+		local_path="${local_path}/release"
+	fi
+
+	if [[ ! -d "${local_path}" ]]; then
+		echo "Did not find the requested buildfolder (${local_path})" >&2
+		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
+	fi
+
+	enable_compiler_symlink "${local_path}"
+}
+
 function c3vm_enable() {
-	if [[ "$from_source" == "true" ]]; then
+	if [[ "$local_name" != "" ]]; then
+		enable_local
+	elif [[ "$from_source" == "true" ]]; then
 		enable_from_source
 	else
 		enable_prebuilt
