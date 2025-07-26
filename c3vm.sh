@@ -1952,6 +1952,15 @@ function c3vm_remove_from_source() {
 		dir_to_remove="${return_determine_git_build_dir}"
 	fi
 
+	if [[ "$remove_interactive" == "true" ]]; then
+		echo -n "Remove '${dir_to_remove}'? [y/n] "
+		read -r ans
+		if [[ "$ans" != y ]]; then
+			log_info "Skipped '${dir_to_remove}'."
+			exit "$EXIT_OK"
+		fi
+	fi
+
 	if [[ "$remove_dryrun" != "true" ]] && ! rm -rf "${dir_to_remove}"
 	then
 		echo "Failed to remove remote directory '${dir_to_remove}'." >&2
