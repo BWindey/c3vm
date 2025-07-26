@@ -1,3 +1,13 @@
+# Bash completion script
+# $1 = name of command -> c3vm
+# $2 = current word being completed
+# $3 = word before current word
+#
+# $COMP_WORDS = array of all words typed on commandline
+# $COMP_CWORD = amount of words typed on commandline
+# $COMP_LINE = string of all words typed on commandline
+# $COMP_POINT = index in string $COMP_LINE where cursor is
+
 function _complete_options() {
 	already_typed="$1"
 	options="$2"
@@ -64,8 +74,8 @@ function get_prebuilt_installed_versions() {
 
 function _c3vm_complete() {
 	local current previous
-	current="${COMP_WORDS[COMP_CWORD]}"
-	previous="${COMP_WORDS[COMP_CWORD-1]}"
+	current="$2"
+	previous="$3"
 
 	local subcommands=(
 		"status" "list" "install" "enable" "add-local" "update" "remove" "use"
