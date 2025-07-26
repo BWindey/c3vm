@@ -522,7 +522,7 @@ while [[ "$1" ]]; do case $1 in
 		local_name="$1"
 		;;
 	--remote)
-		check_flag_for_subcommand "$1" "install" "enable" "use" "remove" "list"
+		check_flag_for_subcommand "$1" "install" "enable" "use" "remove" "list" "update"
 		if [[ "$local_name" != "" ]]; then
 			echo "Cannot specify '--remote' and '--local' at the same time" >&2
 			exit "$EXIT_CONTRADICTING_FLAGS"
