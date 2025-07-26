@@ -86,14 +86,14 @@ function _c3vm_complete() {
 	done
 
 	local global_options=(
-		"--verbose" "-v" "--quiet" "-q" "--help" "-h" "-hh"
+		"--verbose" "-v" "--quiet" "-q" "--help" "-h"
 	)
 	local list_options=(
 		"${global_options[@]}"
 		"--installed" "-i"
 		"--available" "-a"
 		"--remote"
-		"--installed-plain"
+		"--prebuilt-installed"
 		"--local-installed"
 		"--remote-installed"
 		"--remote-builds"
@@ -123,11 +123,12 @@ function _c3vm_complete() {
 		"${global_options[@]}"
 		"--dont-enable"
 		"--keep-archive"
+		"--remote"
 		"--jobs" "-j"
 	)
 	local remove_options=(
 		"--interactive" "-I"
-		"--fixed-match" "-F"
+		"--full-match" "-F"
 		"--inactive"
 		"--dry-run"
 		"--allow-current"
