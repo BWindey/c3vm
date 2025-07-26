@@ -2,102 +2,41 @@
 
 function print_long_help() {
 	cat << 'LONG_HELP'
+Usage: c3vm [<command>] [<flags>] [<args>]
+
 Welcome to a c3c version manager.
 This is a bash script that can install and manage versions of the c3c compiler.
 It can grab releases from Github or compile from scratch.
 
- Usage:
-    c3vm [<command>] [<flags>] [<args>]
+All subcommands that accept flags (see '<subcommand> --help') only accept their
+flags after the subcommand. Global flags can be placed anywhere behind the 'c3vm'
+command.
 
- Commands:
+ Subcommands:
     - status                Print currently enabled compiler info.
     - list                  List (installed) compilers
     - install [<version>]   Install specified version, or latest when
                             version is omitted. Will also enable the installed
                             version (unless --dont-enable).
-    - enable <version>      Enable an already installed version.
+    - enable [<version>]    Enable an already installed version.
     - add-local <path> <name>
                             Link a local C3 compiler directory into c3vm.
                             The local compiler must use a regular CMake
                             build-system. The name will be the name of the
                             symlink, and used for '--local <name>' in other commands.
     - update                Update the current active version, if possible.
-    - remove <version>      Remove specified version (substring match)
-    - use <version> [-- <args>]
+    - remove [<version>]    Remove specified version (substring match)
+    - use [<version>] [-- <args...>]
                             Use the specified version for a single command
                             and pass the <args> to the compiler
 
- Flags:
- - Global:
+ Global flags:
     --verbose, -v           Log all info (default is just a little bit of info)
     --quiet, -q             Suppress all info (not errors)
-    --help, -hh             Print this long help
-    -h                      Print short help
+    --help, -h              Print this long help
 
- - List command:
-    --installed, -i         List installed compilers in pretty output (default)
-    --available, -a         List all available compilers (from Github)
-
-    # Below are primarily used for the completion script
-    --prebuilt-installed    List installed compilers in a plain way
-    --local-installed       List all local checked in compilers.
-    --remote-installed      List all installed remotes
-    --remote-builds         List all builds for a remote (can use --remote)
-    --remote-tags           List all tags for a remote (can use --remote)
-    --remote-branches       List all branches for a remote (can use --remote)
-
- - Install command:
-    --debug                 Install the debug version
-    --dont-enable           Do not enable the new version (keep old one active)
-    --keep-archive          Keep the downloaded archive after extracting.
-                            Not used when compiling from source.
-
-    --from-source           Compile from source. Defaults to latest commit
-                            on the default branch of remote c3lang/c3c but can
-                            be tweaked with other flags.
-    --checkout <ref>        Specify branch, tag or commit for --from-source as
-                            you would pass it to git.
-    --remote <remote>       Use a remote for fetching prebuilt binaries from
-                            (still from Github) or from fetching sourcecode,
-                            defaults to c3lang/c3c.
-                            Only supports Github remotes with tags/releases
-                            following versions vx.y.z and 'latest-prerelease'.
-    --local <name>          Use a local repository with name <name>.
-                            Does not work with --from-source, --checkout and
-                            --remote.
-    --jobs, -j <count>      Number of jobs to use with 'make -j <job-count>'
-                            (Default 16)
-
- - Enable command:
-    Same flags as 'install', except for '--dont-enable', '--keep-archive' or '--jobs'.
-
- - Update command:
-    --dont-enable           Don't enable updated version, only works for prebuilts.
-    --keep-archive          Don't remove downloaded archive, only works for prebuilts.
-    --jobs, -j <count>      Number of jobs to use with 'make -j <job-count>'
-                            (Default 16), only for from-source builds.
-
- - Remove command:
-    # For prebuilts
-    --interactive, -I       Prompt before removing a version
-    --full-match, -F        The given version to remove must match exactly
-    --inactive              Remove all installed compilers except for the
-                            currently enabled compiler
-    # General options
-    --dry-run               Do everything and show everything except for actually
-                            removing.
-    --allow-current         Allow removing the current active version (default false).
-    # For from-source, use same flags as 'c3vm install' to select local/remote
-    --entire-remote         Remove the entire remote as opposed to a single target.
-
- - Use command:
-    --session               Prepends the requested compiler version to your '$PATH'
-                            so it takes precedence in your current shell session.
-                            Should be used as `eval "$(c3vm use --session <version>)"`.
-    For the rest, same flags as 'install', without '--dont-enable',
-    '--keep-archive' '--jobs'.
-
- Extra info, like example uses, directory layout for storing compilers and
+ Extra info per subcommand can be found with '<subcommand> --help', other
+ extra info, like example uses, directory layout for storing compilers and
  exit codes of c3vm can be found in the manpage.
 LONG_HELP
 }
@@ -108,6 +47,211 @@ Usage: c3vm [<command>] [<flags>] [<args>]
 Commands: list, install, enable, add-local, update, remove, use
 Global flags: --verbose, --quiet, --help
 SHORT_HELP
+}
+
+function print_status_help() {
+	cat << 'STATUS_HELP'
+Usage: c3vm status
+
+ The 'status' subcommand shows the currently enabled compiler, if any.
+STATUS_HELP
+}
+
+function print_list_help() {
+	cat << 'LIST_HELP'
+Usage: c3vm list [<flags>]
+
+ The 'list' subcommand can show a list of compiler versions. The default
+ prints some sort of tree showcasing all compilers on your computer.
+ The '--available' flag is useful to see which versions are available to
+ download from GitHub releases.
+ You can only use one flag per usage.
+
+ Flags:
+    --installed, -i         List installed compilers in pretty output (default)
+    --available, -a         List all available versions from GitHub releases
+    --remote <remote>       Change the GitHub remote for '--available',
+                            (default 'c3lang/c3c')
+
+ The following flags are mostly useful for other tools. The completion script
+ for example relies on these flags to provide good completions. They are
+ just a plain list of items, no markup, seperated by newlines.
+ The last three flags use the default remote 'c3lang/c3c', but can be overriden
+ with '--remote <remote>'.
+
+ Flags:
+    --prebuilt-installed    List all installed prebuilts
+    --local-installed       List all "checked in" locals (see 'add-local' help)
+    --remote-installed      List all installed remotes
+    --remote-builds         List all builds for a remote (can use --remote)
+    --remote-tags           List all tags for a remote (can use --remote)
+    --remote-branches       List all branches for a remote (can use --remote)
+LIST_HELP
+}
+
+function print_install_help() {
+	cat << 'INSTALL_HELP'
+Usage: c3vm install [<version>] [<flags>]
+
+ The 'install' subcommand allows you to install a certain version of the c3c
+ compiler on your system. Without a version or flags, it installs the latest
+ release from GitHub (default from the 'c3lang/c3c' repository). This is not
+ the prerelease, for that you need to specify 'latest-prerelease' as version.
+ You can see the available versions with 'c3vm list --available'.
+ After installing the version, it will enable it on your system.
+
+ Flags for prebuilt versions:
+    --keep-archive          Do not remove the '.tar.gz' or '.zip' after
+                            downloading and unpacking the downloaded release
+
+ Flags for both prebuilt and from-source (see below):
+    --debug                 Install a debug version
+    --dont-enable           Do not enable (symlink) the installed version
+    --remote <remote>       Specify a GitHub remote to download the releases
+                            from, or to clone for from-source
+                            (default 'c3lang/c3c)
+
+
+ With the flags you can also request to build a version from source. Just
+ specifying '--from-source' will clone the 'c3lang/c3c' repository and build
+ from the latest commit on the master branch.
+ Using '--remote <remote>' allows you to pick a different repository.
+ Using '--checkout <rev>' allows you to build on something else then the master
+ branch. It recognizes branches, tags or commits.
+
+ Flags for from-source:
+    --from-source           Request to build a version from-source
+    --checkout <ref>        Specify branch, tag or commit as you would pass it
+                            to 'git checkout <rev>'
+    --jobs, -j <count>      Number of jobs to use with 'make -j <count>',
+                            default 16.
+
+ Additionally you can also use 'c3vm install' to build from a local directory
+ that you previously checked into c3vm using 'c3vm add-local'.
+ To do that, specify '--local <name>' instead of '--from-source'. This does not
+ use '--checkout <ref>', only '--debug' and '--jobs' are recognized.
+INSTALL_HELP
+}
+
+function print_enable_help() {
+	cat << 'ENABLE_HELP'
+Usage: c3vm enable [<version>] [<flags>]
+
+ The 'enable' subcommand can enable an already installed version on your system.
+ This is done by symlinking it to '~/.local/bin/c3c', which is assumed to be
+ in your $PATH.
+
+ The flags are all from the 'install' subcommand, but only those used to specify
+ a version, not those that specify behaviour.
+
+ Flags:
+    --debug                 Enable the debug version
+    --from-source           Enable version built from source
+    --remote <remote>       Specify remote for '--from-source'
+                            (default 'c3lang/c3c')
+    --checkout <ref>        Specify branch, tag or commit for '--from-source'
+    --local <name>          Enable local version with specified name
+ENABLE_HELP
+}
+
+function print_add_local_help() {
+	cat << 'ADD_LOCAL_HELP'
+Usage: c3vm add-local <path> <name>
+
+ The 'add-local' subcommand is used to check in a local directory into c3vm.
+ It can then be use with '--local <name>' for the 'install', 'enable', 'remove'
+ or 'use' subcommands.
+
+ The <path> should be a directory which contains a 'CMakeLists.txt', like the
+ official c3c repository.
+ The <name> cannot contain forward slashes ('/') as it will be used as a
+ directory name (symbolic link to be precise).
+ADD_LOCAL_HELP
+}
+
+function print_update_help() {
+	cat << 'UPDATE_HELP'
+Usage: c3vm update [<flags>]
+
+ The 'update' subcommand is used to update the current active version.
+
+ For prebuilt versions, it will check the newest release on GitHub, and if you
+ have not downloaded that yet, it will. When using the latest-prerelease, it will
+ always reinstall the latest prerelease, as there is no (easy?) way of checking
+ if the currently installed prerelease is older then the latest one on GitHub.
+ When a new version gets downloaded, you can choose to not enable it by using the
+ '--dont-enable' flag.
+
+ Flags for prebuilt:
+    --dont-enable           Do not enable (symlink) the installed version
+    --keep-archive          Do not remove the '.tar.gz' or '.zip' after
+                            downloading and unpacking the downloaded release
+    --remote <remote>       Specify remote for getting releases from
+                            (default 'c3lang/c3c')
+
+ For versions built from source, it will do a 'git pull' and then build again.
+ Note that when a version built on a commit or tag cannot be updated, as both
+ specify a fixed point in history, not a changing one - as branches do.
+
+ Flags for from-source:
+    --jobs, -j <count>      Number of jobs to use with 'make -j <count>'
+                            (default 16)
+UPDATE_HELP
+}
+
+function print_remove_help() {
+	cat << 'REMOVE_HELP'
+Usage: c3vm remove [<version>] [<flags>]
+
+ The 'remove' subcommand can remove installed versions. Specifying a <version>
+ will remove all prebuilts which match with a substring match
+ (some_ver == *"<version>"*). With '--full-match/-F' this can be changed to
+ require a full match.
+ By default disallows to remove the current active version, but can be overridden
+ with '--allow-current'.
+ Has the same selection flags as 'install' and 'enable' for from-source.
+
+ Flags for prebuilt:
+    --full-match,  -F       Version must match exactly instead of substring match
+    --inactive              Remove all versions that are currently not enabled
+
+ Flags for prebuilt and from-source:
+    --interactive, -I       Prompt before removing
+    --dry-run               Do everything except the actual removing
+    --allow-current         Allow removing the current active version
+    --debug                 Remove debug version
+
+ Flags for from-source:
+    --from-source           Remove version built from source
+    --remote <remote>       Specify remote (default 'c3lang/c3c')
+    --checkout <rev>        Specify branch, tag or commit
+    --entire-remote         Remove the entire remote as opposed to a single target
+
+    --local <name>          Check a local directory out of c3vm
+REMOVE_HELP
+}
+
+function print_use_help() {
+	cat << 'USE_HELP'
+Usage: c3vm use [<version>] [-- <args...>]
+
+ The 'use' subcommand lets you use a specific version for a single c3c command.
+ F.e.: 'c3vm use v0.7.2 -- --version'.
+
+ Accepts the same flags as 'enable' to select a prebuilt version or one
+ from-source.
+
+ Special flag '--session' can be used to print out the path-modification to use
+ the specified version in your shell session. Use it as:
+    eval "$(c3vm use --session <version>)"
+
+ Flags for selection:
+    --debug                 Use a debug version
+    --from-source           Use version built from source
+    --remote <remote>       Specify remote (default 'c3lang/c3c')
+    --checkout <rev>        Specify branch, tag or commit
+    --local <name>          Use local directory
+USE_HELP
 }
 
 # Tweakable variables
@@ -247,6 +391,7 @@ verbose="false"
 quiet="false"
 
 subcommand=""
+printiehelpie="false"
 
 
 # Global options
@@ -367,13 +512,8 @@ while [[ "$1" ]]; do case $1 in
 		fi
 		quiet="true"
 		;;
-	-h)
-		print_short_help
-		exit "$EXIT_OK"
-		;;
-	--help | -hh)
-		print_long_help
-		exit "$EXIT_OK"
+	--help | -h)
+		printiehelpie="true"
 		;;
 
 # Subcommands
@@ -671,6 +811,38 @@ while [[ "$1" ]]; do case $1 in
 		;;
 esac; shift; done
 
+if [[ "$printiehelpie" == "true" ]]; then
+	case "$subcommand" in
+		status)
+			print_status_help
+			;;
+		list)
+			print_list_help
+			;;
+		install)
+			print_install_help
+			;;
+		enable)
+			print_enable_help
+			;;
+		add-local)
+			print_add_local_help
+			;;
+		update)
+			print_update_help
+			;;
+		remove)
+			print_remove_help
+			;;
+		use)
+			print_use_help
+			;;
+		"")
+			print_long_help
+			;;
+	esac
+	exit "$EXIT_OK"
+fi
 
 # Check that the subcommands who need it got their arguments
 # We do that here instead of in the argparsing because I want to allow
