@@ -1979,6 +1979,15 @@ function c3vm_remove_local() {
 		exit "$EXIT_REMOVE_NOT_FOUND"
 	fi
 
+	if [[ "$remove_interactive" == "true" ]]; then
+		echo -n "Check out '${local_name}' out of c3vm? [y/n] "
+		read -r ans
+		if [[ "$ans" != y ]]; then
+			log_info "Skipped '${local_name}'."
+			exit "$EXIT_OK"
+		fi
+	fi
+
 	log_info "Checking '${local_name}' out of c3vm..."
 	unlink "${path}"
 }
