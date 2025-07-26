@@ -39,7 +39,7 @@ It can grab releases from Github or compile from scratch.
     --available, -a         List all available compilers (from Github)
 
     # Below are primarily used for the completion script
-    --installed-plain       List installed compilers in a plain way
+    --prebuilt-installed    List installed compilers in a plain way
     --local-installed       List all local checked in compilers.
     --remote-installed      List all installed remotes
     --remote-builds         List all builds for a remote (can use --remote)
@@ -80,8 +80,7 @@ It can grab releases from Github or compile from scratch.
  - Remove command:
     # For prebuilts
     --interactive, -I       Prompt before removing a version
-    --fixed-match, -F       Interpret <version> as fixed-string instead of
-                            regex pattern
+    --full-match, -F        The given version to remove must match exactly
     --inactive              Remove all installed compilers except for the
                             currently enabled compiler
     # General options
@@ -443,10 +442,10 @@ while [[ "$1" ]]; do case $1 in
 		check_only_one_list_filter
 		list_filter="available"
 		;;
-	--installed-plain)
+	--prebuilt-installed)
 		check_flag_for_subcommand "$1" "list"
 		check_only_one_list_filter
-		list_filter="installed-plain"
+		list_filter="prebuilt-installed"
 		;;
 	--local-installed)
 		check_flag_for_subcommand "$1" "list"
@@ -571,7 +570,7 @@ while [[ "$1" ]]; do case $1 in
 		check_flag_for_subcommand "$1" "remove"
 		remove_interactive="true"
 		;;
-	--no-regex | -F)
+	--full-match | -F)
 		check_flag_for_subcommand "$1" "remove"
 		if [[ "$remove_inactive" == "true" ]]; then
 			echo "It is not possible to use '${1}' together with '--inactive'." >&2
@@ -996,7 +995,7 @@ function c3vm_print_build_tree() {
 
 function c3vm_list_installed() {
 	local plain="false"
-	if [[ "$1" == "installed-plain" ]]; then
+	if [[ "$1" == "prebuilt-installed" ]]; then
 		plain="true"
 	fi
 
@@ -1095,7 +1094,7 @@ function list_remote_branches() {
 
 function c3vm_list() {
 	case "$list_filter" in
-		"" | installed | installed-plain)
+		"" | installed | prebuilt-installed)
 			c3vm_list_installed "$list_filter"
 			;;
 		available)
