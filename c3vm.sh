@@ -1205,6 +1205,7 @@ function ensure_download_directory() {
 		return 1
 	else
 		echo "'$output_dir' already exists but does not contain a 'c3c' binary."
+		ls -l "$output_dir"
 		echo -n "Continue and overwrite directory? [y/n] "
 		read -r ans
 		if [[ "$ans" == y ]]; then
@@ -1352,6 +1353,7 @@ function ensure_remote_git_directory() {
 	if [[ -e "$git_dir" ]]; then
 		if ! [[ -e "${git_dir}/.git/" || -d "${git_dir}/.git/" ]]; then
 			echo "'${git_dir}' already exists but is not a git repository."
+			ls -l "${git_dir}"
 			echo "Continue and overwrite directory? [y/n] "
 			read -r ans
 			if [[ "$ans" == y ]]; then
@@ -1530,6 +1532,7 @@ function install_setup_build_folders() {
 	fi
 	if ! [[ -d "$build_dir" ]]; then
 		echo "'${build_dir}' is not a directory, but is needed to build in."
+		ls -l "$build_dir"
 		echo -n "Permission to remove it? [y/n] "
 		read -r ans
 		if [[ "$ans" == y ]]; then
@@ -1603,6 +1606,7 @@ function install_setup_local_build_folders() {
 	if [[ -e "${build_dir}" ]]; then
 		if [[ ! -d "${build_dir}" ]]; then
 			echo "'${build_dir}' exists but is not a directory."
+			ls -l "$build_dir"
 			echo "Permission to remove it and continue? [y/n] "
 			read -r ans
 			if [[ "$ans" != y ]]; then
@@ -2103,6 +2107,7 @@ function c3vm_add_local() {
 			exit "$EXIT_ADDLOCAL_ALREADY_ADDED"
 		else
 			echo "'${add_local_name}' already exists but has no 'CMakeLists.txt'."
+			ls -l "${local_dir}"
 			echo -n "Remove '${local_dir}' and continue? [y/n] "
 			read -r answer
 			if [[ "$answer" != y ]]; then
