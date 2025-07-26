@@ -69,7 +69,7 @@ function get_available_versions() {
 }
 
 function get_prebuilt_installed_versions() {
-	c3vm list --installed-plain 2>/dev/null
+	c3vm list --prebuilt-installed 2>/dev/null
 }
 
 function _c3vm_complete() {
@@ -82,12 +82,21 @@ function _c3vm_complete() {
 	)
 
 	local subcommand=""
+	local processed_chars
+	declare -i processed_chars="${#COMP_WORDS[0]}"
+
 	for (( i = 1; i < "${#COMP_WORDS[@]}"; i++ )); do
+		(( processed_chars += "${#COMP_WORDS[${i}]}" ))
+
 		# Check if COMP_WORDS[i] is a subcommand, but only set it when it's not set yet
 		if [[ "${subcommands[*]}" =~ (^|.+ )${COMP_WORDS[$i]}($| .+) && "$subcommand" == "" ]]
 		then
 			subcommand="${COMP_WORDS[$i]}"
-		elif [[ "${subcommand}" == "use" && "${COMP_WORDS[$i]}" == "--" ]]; then
+		elif [[
+			"${subcommand}" == "use"
+			&& "${COMP_WORDS[$i]}" == "--"
+			&& ! (( processed_chars > "${COMP_POINT}" ))
+		]]; then
 			# Hand completion over to `c3c`
 			(( i += 1 ))
 			try_complete_c3c "$i"
