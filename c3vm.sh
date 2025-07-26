@@ -508,10 +508,10 @@ while [[ "$1" ]]; do case $1 in
 		if [[ "$from_source" == "true" ]]; then
 			echo "Cannot specify '--from-source' and '--local' at the same time" >&2
 			exit "$EXIT_CONTRADICTING_FLAGS"
-        elif [[ "$remote" != "c3lang/c3c" ]]; then
+		elif [[ "$remote" != "c3lang/c3c" ]]; then
 			echo "Cannot specify '--remote' and '--local' at the same time" >&2
 			exit "$EXIT_CONTRADICTING_FLAGS"
-        elif [[ "$from_rev" != "default" ]]; then
+		elif [[ "$from_rev" != "default" ]]; then
 			echo "Cannot specify '--checkout' and '--local' at the same time" >&2
 			exit "$EXIT_CONTRADICTING_FLAGS"
 		elif [[ "$#" -le 1 ]]; then
@@ -1907,10 +1907,10 @@ function c3vm_remove_prebuilt() {
 		fi
 
 		if [[ "$remove_interactive" == "true" ]]; then
-			echo -n "Remove version '$release'? [y/n] "
+			echo -n "Remove version '${release}'? [y/n] "
 			read -r ans
 			if [[ "$ans" != y ]]; then
-				log_info "Skipped '$release'."
+				log_info "Skipped '${release}'."
 				continue
 			fi
 		fi
@@ -1926,7 +1926,7 @@ function c3vm_remove_prebuilt() {
 			log_info "Use 'c3vm enable <version>' to enable a new version."
 			log_info "Removing (now broken) symlink..."
 			# Safe to unlink (managed by c3vm) as the current active version
-			# matches one of the versions inside '~/.local/bin/c3vm/'
+			# matches one of the versions inside '~/.local/share/c3vm/'
 			unlink "$HOME/.local/bin/c3c"
 		fi
 		found_match="true"
