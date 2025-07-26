@@ -218,6 +218,10 @@ function _c3vm_complete() {
 			compopt -o default
 			return
 			;;
+		*)
+			# status command I think? if others don't have flags they will be
+			# catched here too
+			_complete_options "${global_options[*]}"
 	esac
 }
 
