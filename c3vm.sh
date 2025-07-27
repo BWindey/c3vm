@@ -1591,7 +1591,7 @@ function ensure_remote_git_directory() {
 		echo "      If something goes wrong, please look at https://github.com/c3lang/c3c/?tab=readme-ov-file#compiling"
 		echo "      for your platforms instructions, and modify the function 'actually_build_from_source'"
 		echo "      accordingly. (Arch Linux is known to require modification.)"
-		echo "      The function can be found just below this scripts argument parsing, around line 758."
+		echo "      The function can be found just below this scripts argument parsing, around line 928."
 	fi
 }
 
