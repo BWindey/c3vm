@@ -1332,7 +1332,7 @@ function determine_directory_prebuilt() {
 		return
 	fi
 
-	determine_download_release
+	[[ "$1" != "use" ]] && determine_download_release
 
 	local result
 
