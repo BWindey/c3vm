@@ -4,13 +4,13 @@ function print_long_help() {
 	cat << 'LONG_HELP'
 Usage: c3vm [<command>] [<flags>] [<args>]
 
-Welcome to a c3c version manager.
-This is a bash script that can install and manage versions of the c3c compiler.
-It can grab releases from Github or compile from scratch.
+ Welcome to a c3c version manager.
+ This is a bash script that can install and manage versions of the c3c compiler.
+ It can grab releases from Github or compile from scratch.
 
-All subcommands that accept flags (see '<subcommand> --help') only accept their
-flags after the subcommand. Global flags can be placed anywhere behind the 'c3vm'
-command.
+ All subcommands that accept flags (see '<subcommand> --help') only accept their
+ flags after the subcommand. Global flags can be placed anywhere behind the 'c3vm'
+ command.
 
  Subcommands:
     - status                Print currently enabled compiler info.
@@ -256,6 +256,13 @@ USE_HELP
 
 # Tweakable variables
 dir_compilers="${XDG_DATA_HOME:-$HOME/.local/share}/c3vm"
+dir_prebuilt="${dir_compilers}/prebuilt"
+dir_prebuilt_releases="${dir_compilers}/prebuilt/releases"
+dir_prebuilt_prereleases="${dir_compilers}/prebuilt/prereleases"
+dir_from_source="${dir_compilers}/from_source"
+dir_from_source_remote="${dir_compilers}/from_source/remote"
+dir_from_source_local="${dir_compilers}/from_source/local"
+
 dir_bin_link="$HOME/.local/bin/"
 
 
@@ -315,22 +322,19 @@ EXIT_USE_MULTIPLE_EXECUTABLES_FOUND=101
 
 
 function ensure_directories() {
-	for directory in "$dir_compilers" "$dir_bin_link"; do
-		if ! [[ -e "$directory" && -d "$directory" ]]; then
-			echo "'${directory}' does not exist, but is needed for this script."
-			echo -n "Create directory? [y/n] "
-			read -r ans
-			if [[ "$ans" == y ]]; then
-				mkdir -p "$directory" || exit "$EXIT_MISSING_DIRS"
-			else
-				echo "Cannot continue without ${directory}, quitting..."
-				exit "$EXIT_MISSING_DIRS"
-			fi
-		fi
+	local directories=(
+		"${dir_compilers}"
+		"${dir_prebuilt}"
+		"${dir_prebuilt_releases}"
+		"${dir_prebuilt_prereleases}"
+		"${dir_from_source}"
+		"${dir_from_source_remote}"
+		"${dir_from_source_local}"
+		"${dir_bin_link}"
+	)
+	for directory in "${directories[@]}"; do
+		mkdir -p "${directory}" || exit "$EXIT_MISSING_DIRS"
 	done
-
-	mkdir -p "${dir_compilers}/git/"{local,remote}/
-	mkdir -p "${dir_compilers}/prebuilt/"{releases,prereleases}/
 }
 
 # OS filled in by check_platform, used to download correct release from GitHub
@@ -550,16 +554,11 @@ while [[ "$1" ]]; do case $1 in
 		subcommand="use"
 		;;
 	upgrade)
-		echo "Why does @FoxKiana nag so much?"
-		sleep 1
-		echo "I don't think I'll understand..."
-		sleep 1
-		echo "."
-		sleep 1
-		echo "Sigh..."
-		sleep 1
+		echo "Why does @FoxKiana nag so much?"   && sleep 1
+		echo "I don't think I'll understand..."  && sleep 1
+		echo "."                                 && sleep 1
+		echo "Sigh..."                           && sleep 1
 		echo "Ok then..."
-		sleep 1
 		c3vm_directory="$(realpath "$0" | xargs dirname)"
 		c3vm_name="$(realpath "$0" | xargs basename)"
 		if [[ -d "${c3vm_directory}/.git/" ]]; then
@@ -683,7 +682,7 @@ while [[ "$1" ]]; do case $1 in
 				debug_version="true"
 				;;
 			"")
-				echo "'--debug' is only supported for subcommands ('install', 'enable', 'use')." >&2
+				echo "'--debug' is only supported for subcommands ('install', 'enable', 'use', 'remove')" >&2
 				exit "$EXIT_FLAG_WITHOUT_SUBCOMMAND"
 				;;
 			*)
@@ -944,7 +943,8 @@ function actually_build_from_source() {
 	)
 
 	if is_arch_distro; then
-		echo "What are you doing on Arch??? Get a real distro, like Void Linux."
+		log_verbose "What are you doing on Arch??? Get a real distro, like Void Linux."
+		log_info "Detected arch(-like) distro, turning on dynamic linking..."
 		cmake_flags+=( -D C3_LINK_DYNAMIC=ON )
 	fi
 
@@ -990,7 +990,7 @@ function is_symlink_local_c3vm() {
 	symlink="$1"
 	actual="$(readlink "$symlink")"
 
-	for locale in "${dir_compilers}/git/local/"*; do
+	for locale in "${dir_from_source_local}/"*; do
 		local_path="$(readlink "$locale")"
 		case "$actual" in
 			"${local_path}/build/release/c3c" )
@@ -1043,15 +1043,15 @@ function c3vm_status() {
 		exit "$EXIT_OK"
 	fi
 	local without_pref="${enabled_compiler#"$dir_compilers"/}"
-	local type="${without_pref%%/*}" # prebuilt or git
+	local type="${without_pref%%/*}" # prebuilt or from_source
 	local rest="${without_pref#*/}"
 
 	case "$type" in
-		git)
-			local git_type="${rest%%/*}"
+		from_source)
+			local from_source_type="${rest%%/*}"
 			rest="${rest#*/}"
 
-			case "$git_type" in
+			case "$from_source_type" in
 				remote)
 					local remote_name="${rest%%/*}"
 					rest="${rest#*build/}"
@@ -1068,8 +1068,9 @@ function c3vm_status() {
 					echo "Current active compiler: compiled from source from remote '${remote_name}'."
 					echo "${build_type^} build on ${git_rev}."
 					;;
+				# local) already catched
 				*)
-					echo "Unexpected git-type: ${git_type}" >&2
+					echo "Unexpected git-type: ${from_source_type}" >&2
 					echo "Kapoetskie" >&2
 					exit "$EXIT_STATUS_UNKNOWN_TYPE"
 					;;
@@ -1112,7 +1113,7 @@ function c3vm_print_build_tree() {
 
 	# All remotes/locals
 	local droopies=()
-	for dir in "${dir_compilers}/git/${directory}/"*; do
+	for dir in "${dir_from_source}/${directory}/"*; do
 		# Check if was empty or not valid
 		[[ "${dir}" == "*" || ! -d "${dir}" ]] && continue
 		droopies+=( "$dir" )
@@ -1180,9 +1181,9 @@ function c3vm_list_installed() {
 
 	# First gather so we know how many so we can use different prefix for the last
 	local prereleases=()
-	for prerelease in "${dir_compilers}/prebuilt/prereleases/"*; do
+	for prerelease in "${dir_prebuilt_prereleases}/"*; do
 		# Catch when there is nothing in 'prereleases/'
-		if [[ "$prerelease" != *"/prereleases/*" ]]; then
+		if [[ "$prerelease" != *"/*" ]]; then
 			prereleases+=( "$( basename "${prerelease}")" )
 		fi
 	done
@@ -1204,8 +1205,8 @@ function c3vm_list_installed() {
 
 	# Now the same for releases
 	local releases=()
-	for release in "${dir_compilers}/prebuilt/releases/"*; do
-		if [[ "$release" != *"/releases/*" ]]; then
+	for release in "${dir_prebuilt_releases}/"*; do
+		if [[ "$release" != *"/*" ]]; then
 			releases+=( "$( basename "${release}")" )
 		fi
 	done
@@ -1247,19 +1248,19 @@ function c3vm_list_available() {
 }
 
 function list_remote_installed() {
-	ls -1 "${dir_compilers}/git/remote/" | tr '_' '/'
+	ls -1 "${dir_from_source_remote}/" | tr '_' '/'
 }
 
 function list_remote_builds() {
-	ls -1 "${dir_compilers}/git/remote/${remote/\//_}/build/"
+	ls -1 "${dir_from_source_remote}/${remote/\//_}/build/"
 }
 
 function list_remote_tags() {
-	git -C "${dir_compilers}/git/remote/${remote/\//_}/" tag -l
+	git -C "${dir_from_source_remote}/${remote/\//_}/" tag -l
 }
 
 function list_remote_branches() {
-	git -C "${dir_compilers}/git/remote/${remote/\//_}/" branch -r |
+	git -C "${dir_from_source_remote}/${remote/\//_}/" branch -r |
 		grep -v "/HEAD" |
 		sed -s "s+ *origin/++"
 }
@@ -1273,7 +1274,7 @@ function c3vm_list() {
 			c3vm_list_available
 			;;
 		local-installed)
-			ls -1 "${dir_compilers}/git/local/"
+			ls -1 "${dir_from_source_local}/"
 			;;
 		remote-installed)
 			list_remote_installed
@@ -1321,26 +1322,26 @@ function determine_directory_prebuilt() {
 	# this solves an issue I had with 'c3vm use latest-prerelease_xxx'
 	# not sure if this is the proper solution o.O
 	if [[ "$1" == "use" && "$version" == "latest-prerelease"* ]]; then
-		for directory in "${dir_compilers}/prebuilt/prereleases/${version}"*; do
+		for directory in "${dir_prebuilt_prereleases}/${version}"*; do
 			if [[ "$return_determine_directory" ]]; then
 				echo "Found multiple preleases matching '${version}'" >&2
 				exit "$EXIT_INSTALL_UNKNOWN_VERSION"
 			fi
-			return_determine_directory="${dir_compilers}/prebuilt/prereleases/${version}"
+			return_determine_directory="${directory}"
 		done
 		return
 	fi
 
 	determine_download_release
 
-	local result="${dir_compilers}/prebuilt"
+	local result
 
 	case "${version}" in
 		latest-prerelease)
-			result="${result}/prereleases/latest-prerelease_" # Leave open
+			result="${dir_prebuilt_prereleases}/latest-prerelease_" # Leave open
 			;;
 		v*)
-			result="${result}/releases/${version}"
+			result="${dir_prebuilt_releases}/${version}"
 			;;
 		*)
 			echo "Encountered unexpected error: did not recognize version '${version}'" >&2
@@ -1373,20 +1374,20 @@ function ensure_download_directory() {
 	# The '| grep -q .' trick ensures we get a return value to compare
 	if find "$output_dir" -type f -executable -name "c3c" | grep -q .; then
 		# c3c already installed in this directory
-		echo "Requested version already installed in ${output_dir}."
+		log_info "Requested version already installed in '${output_dir}'."
 		return 1
 	else
-		echo "'$output_dir' already exists but does not contain a 'c3c' binary."
+		echo "'${output_dir}' already exists but does not contain a 'c3c' binary."
 		ls -l "$output_dir"
 		echo -n "Continue and overwrite directory? [y/n] "
 		read -r ans
 		if [[ "$ans" == y ]]; then
 			if ! rm -r "${output_dir}"; then
-				echo "Failed to remove '$output_dir' before recreating." >&2
+				echo "Failed to remove '${output_dir}' before recreating." >&2
 				exit "$EXIT_INSTALL_NO_DIR"
 			fi
 			if ! mkdir -p "$output_dir"; then
-				echo "Failed to create '$output_dir'." >&2
+				echo "Failed to create '${output_dir}'." >&2
 				exit "$EXIT_INSTALL_NO_DIR"
 			fi
 		else
@@ -1398,7 +1399,7 @@ function ensure_download_directory() {
 
 function enable_compiler_symlink() {
 	local output_dir="$1"
-	local symlink_location="$HOME/.local/bin/c3c"
+	local symlink_location="${dir_bin_link}/c3c"
 
 	# Check first if it's a symlink, so we can detect if it's broken if -e
 	# returns false
@@ -1410,7 +1411,7 @@ function enable_compiler_symlink() {
 			readlink "$symlink_location"
 			echo -n "Permission to overwrite? [y/n] "
 			read -r ans
-			if [[ "$ans" ]]; then
+			if [[ "$ans" == "y" ]]; then
 				unlink "$symlink_location"
 			else
 				echo "Cannot continue before broken link is removed or fixed." >&2
@@ -1419,7 +1420,7 @@ function enable_compiler_symlink() {
 		elif ! is_symlink_local_c3vm "${symlink_location}" && [[
 			"$(readlink "$symlink_location")" != "$dir_compilers"*
 		]]; then
-			echo "Symlink is not managed by 'c3vm' (points to '$(readlink "$symlink_location")')"
+			echo "Symlink is not managed by 'c3vm' (points to '$(readlink "${symlink_location}")')"
 			echo -n "Unlink and link c3vm-installed version? [y/n] "
 			read -r ans
 			if [[ "$ans" == y ]]; then
@@ -1439,11 +1440,11 @@ function enable_compiler_symlink() {
 	fi
 
 	# Not hardcoding path because macos zips are of the form 'macos/c3c'
-	# while the linux tar.gz is of the form 'c3/c3c'.
+	# while the linux tar.gz is of the form 'c3/c3c' or 'linux/c3c'...
 	local exe_path
 	exe_path="$(find "${output_dir}" -type f -executable -name "c3c" -exec realpath '{}' \;)"
 	log_info "Linking '${exe_path}' executable to '${symlink_location}'..."
-	ln -s "${exe_path}" "$HOME/.local/bin/c3c"
+	ln -s "${exe_path}" "${symlink_location}"
 }
 
 # Little helper function to send output to /dev/null if $quiet is set
@@ -1463,7 +1464,7 @@ function download_known_release() {
 	if [[ "$output_dir" == *"latest-prerelease_" ]]; then
 		local current_date
 		current_date="$(date +%Y%M%d_%H%S)" # Unique per second
-		log_verbose "Setting version to '${version}_${current_date}'"
+		log_verbose "Setting version to 'latest-prerelease_${current_date}'"
 		output_dir="${output_dir}${current_date}"
 	fi
 
@@ -1738,11 +1739,11 @@ function install_setup_build_folders() {
 		fi
 	fi
 
-	return_install_setup_build_folders="${build_dir}"
+	return_install_setup_build_folders="$build_dir"
 }
 
 function install_from_source() {
-	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+	local git_dir="${dir_from_source_remote}/${remote/\//_}"
 	ensure_remote_git_directory "$git_dir"
 
 	if [[ "$return_ensure_remote_git_directory" == "true" ]]; then
@@ -1762,7 +1763,7 @@ function install_from_source() {
 				;;
 		esac
 
-		if ! git clone "${clone_link}" "${git_dir}" ; then
+		if ! git clone "$clone_link" "$git_dir" ; then
 			echo "Failed to clone '${clone_link}'" >&2
 			exit "$EXIT_INSTALL_CANT_CLONE"
 		fi
@@ -1775,13 +1776,13 @@ function install_from_source() {
 
 	check_build_tools_available
 
-	install_setup_build_folders "${git_dir}"
-	local build_dir="${return_install_setup_build_folders}"
+	install_setup_build_folders "$git_dir"
+	local build_dir="$return_install_setup_build_folders"
 
-	actually_build_from_source "${git_dir}" "${build_dir}"
+	actually_build_from_source "$git_dir" "$build_dir"
 
 	if [[ "$enable_after" == "true" ]]; then
-		enable_compiler_symlink "${build_dir}"
+		enable_compiler_symlink "$build_dir"
 	fi
 }
 
@@ -1795,8 +1796,8 @@ function install_setup_local_build_folders() {
 		build_dir="${build_dir}/release"
 	fi
 
-	if [[ -e "${build_dir}" ]]; then
-		if [[ ! -d "${build_dir}" ]]; then
+	if [[ -e "$build_dir" ]]; then
+		if [[ ! -d "$build_dir" ]]; then
 			echo "'${build_dir}' exists but is not a directory."
 			ls -l "$build_dir"
 			echo "Permission to remove it and continue? [y/n] "
@@ -1804,25 +1805,25 @@ function install_setup_local_build_folders() {
 			if [[ "$ans" != y ]]; then
 				echo "Aborting." >&2
 				exit "$EXIT_INSTALL_BUILD_DIR"
-			elif ! rm "${build_dir}"; then
+			elif ! rm "$build_dir"; then
 				echo "Failed to remove '${build_dir}'" >&2
 				exit "$EXIT_INSTALL_BUILD_DIR"
 			fi
 		fi
 	else
-		mkdir -p "${build_dir}"
+		mkdir -p "$build_dir"
 	fi
 
-	return_install_setup_build_folders="${build_dir}"
+	return_install_setup_build_folders="$build_dir"
 }
 
 function install_local() {
-	local local_dir="${dir_compilers}/git/local/${local_name}"
+	local local_dir="${dir_from_source_local}/${local_name}"
 
-	if [[ ! -e "${local_dir}" ]]; then
+	if [[ ! -e "$local_dir" ]]; then
 		echo "'${local_dir}' does not exist" >&2
 		exit "$EXIT_INSTALL_NO_DIR"
-	elif [[ ! -d "${local_dir}" ]]; then
+	elif [[ ! -d "$local_dir" ]]; then
 		echo "'${local_dir}' is not a directory" >&2
 		exit "$EXIT_INSTALL_NO_DIR"
 	elif [[ ! -e "${local_dir}/CMakeLists.txt" ]]; then
@@ -1832,13 +1833,13 @@ function install_local() {
 
 	check_build_tools_available
 
-	install_setup_local_build_folders "${local_dir}"
-	local build_dir="${return_install_setup_build_folders}"
+	install_setup_local_build_folders "$local_dir"
+	local build_dir="$return_install_setup_build_folders"
 
-	actually_build_from_source "${local_dir}" "${build_dir}"
+	actually_build_from_source "$local_dir" "$build_dir"
 
 	if [[ "$enable_after" == "true" ]]; then
-		enable_compiler_symlink "${build_dir}"
+		enable_compiler_symlink "$build_dir"
 	fi
 }
 
@@ -1853,14 +1854,14 @@ function c3vm_install() {
 }
 
 function enable_prebuilt() {
-	local to_search="${version}"
+	local to_search="$version"
 	if [[ "$debug_version" == "true" ]]; then
 		to_search="${to_search}-debug"
 	fi
 
 	local matches
 	mapfile -t matches < \
-		<(find "${dir_compilers}/prebuilt/" -type d -name "${to_search}*" 2>/dev/null)
+		<(find "${dir_prebuilt}/" -type d -name "${to_search}*" 2>/dev/null)
 
 	if (( ${#matches[@]} == 0 )); then
 		echo "No compilers installed that match ${to_search}" >&2
@@ -1878,7 +1879,7 @@ function enable_prebuilt() {
 }
 
 function enable_from_source() {
-	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+	local git_dir="${dir_from_source_remote}/${remote/\//_}"
 
 	if [[ ! -d "$git_dir" || ! -d "${git_dir}/.git" ]]; then
 		echo "Git repository not found in '${git_dir}'." >&2
@@ -1887,10 +1888,10 @@ function enable_from_source() {
 	fi
 
 	determine_git_build_dir "$git_dir"
-	local build_dir="${return_determine_git_build_dir}"
+	local build_dir="$return_determine_git_build_dir"
 
 	if [[ ! -d "$build_dir" ]]; then
-		echo "Build folder not found: ${build_dir}" >&2
+		echo "Build folder not found: '${build_dir}'" >&2
 		echo "Try running: c3vm install --from-source ..." >&2
 		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
 	fi
@@ -1899,9 +1900,9 @@ function enable_from_source() {
 }
 
 function enable_local() {
-	local local_path="${dir_compilers}/git/local/${local_name}"
+	local local_path="${dir_from_source_local}/${local_name}"
 
-	if [[ ! -d "${local_path}" ]]; then
+	if [[ ! -d "$local_path" ]]; then
 		echo "'${local_name}' is not recognized by c3vm" >&2
 		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
 	fi
@@ -1913,12 +1914,12 @@ function enable_local() {
 		local_path="${local_path}/release"
 	fi
 
-	if [[ ! -d "${local_path}" ]]; then
+	if [[ ! -d "$local_path" ]]; then
 		echo "Did not find the requested buildfolder (${local_path})" >&2
 		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
 	fi
 
-	enable_compiler_symlink "${local_path}"
+	enable_compiler_symlink "$local_path"
 }
 
 function c3vm_enable() {
@@ -1932,13 +1933,13 @@ function c3vm_enable() {
 }
 
 function update_from_source() {
-	local current_active="${1#"${dir_compilers}/git/"}"
+	local current_active="${1#"${dir_from_source}/"}"
 
 	# Extract the needed info from the current-active-path
 	current_active="${current_active#remote/}"
 
 	local active_remote="${current_active%%/*}"
-	local git_dir="${dir_compilers}/git/remote/${active_remote}"
+	local git_dir="${dir_from_source_remote}/${active_remote}"
 
 	current_active="${current_active#"${active_remote}/build/"}"
 
@@ -1981,7 +1982,7 @@ function update_from_source() {
 	answer="$(git -C "${git_dir}" pull 2>/dev/null)"
 	if [[ "$answer" != "Already up to date." ]]; then
 		log_info "New commits found, building again..."
-		actually_build_from_source "${git_dir}" "${build_dir}"
+		actually_build_from_source "$git_dir" "$build_dir"
 		enable_compiler_symlink "$build_dir"
 	else
 		log_info "Already up to date."
@@ -1989,7 +1990,7 @@ function update_from_source() {
 }
 
 function update_prebuilt() {
-	local current_active="${1#"${dir_compilers}/prebuilt/"}"
+	local current_active="${1#"${dir_prebuilt}/"}"
 	current_active="${current_active#*releases/}" # Strip (pre)releases
 	current_active="${current_active%%/*}" # Strip everything behind first '/'
 
@@ -2046,10 +2047,10 @@ function c3vm_update() {
 	get_current_version
 
 	case "$current_active_version" in
-		"${dir_compilers}/git/remote/"*)
+		"${dir_from_source_remote}/"*)
 			update_from_source "$current_active_version"
 			;;
-		"${dir_compilers}/prebuilt/"*)
+		"${dir_prebuilt}/"*)
 			update_prebuilt "$current_active_version"
 			;;
 		*)
@@ -2081,14 +2082,11 @@ function is_removeable_version() {
 function c3vm_remove_prebuilt() {
 	local found_match="false"
 
-	local dir_releases="${dir_compilers}/prebuilt/releases/"
-	local dir_prerels="${dir_compilers}/prebuilt/prereleases/"
-
 	get_current_version
 
 	local release
 
-	for release_dir in "${dir_releases}"* "${dir_prerels}"*; do
+	for release_dir in "${dir_prebuilt_releases}"* "${dir_prebuilt_prereleases}"*; do
 		release="$(basename "$release_dir")"
 		if [[ "$release" == "*" ]]; then continue; fi # Empty dir
 
@@ -2123,7 +2121,7 @@ function c3vm_remove_prebuilt() {
 			log_info "Removing (now broken) symlink..."
 			# Safe to unlink (managed by c3vm) as the current active version
 			# matches one of the versions inside '~/.local/share/c3vm/'
-			unlink "$HOME/.local/bin/c3c"
+			unlink "${dir_bin_link}/c3c"
 		fi
 		found_match="true"
 	done
@@ -2134,18 +2132,18 @@ function c3vm_remove_prebuilt() {
 }
 
 function c3vm_remove_from_source() {
-	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+	local git_dir="${dir_from_source_remote}/${remote/\//_}"
 
-	if [[ ! -d "${git_dir}" ]]; then
+	if [[ ! -d "$git_dir" ]]; then
 		echo "Cannot remove because '${git_dir}' does not exist." >&2
 		exit "$EXIT_REMOVE_NOT_FOUND"
 	fi
 
-	local dir_to_remove="${git_dir}"
+	local dir_to_remove="$git_dir"
 
 	if [[ "$remove_entire_remote" != "true" ]]; then
-		determine_git_build_dir "${git_dir}"
-		dir_to_remove="${return_determine_git_build_dir}"
+		determine_git_build_dir "$git_dir"
+		dir_to_remove="$return_determine_git_build_dir"
 	fi
 
 	if [[ "$remove_interactive" == "true" ]]; then
@@ -2168,7 +2166,7 @@ function c3vm_remove_from_source() {
 }
 
 function c3vm_remove_local() {
-	local path="${dir_compilers}/git/local/${local_name}"
+	local path="${dir_from_source_local}/${local_name}"
 
 	if [[ ! -h "$path" ]]; then
 		echo "'${local_name}' is not a recognized name." >&2
@@ -2185,7 +2183,7 @@ function c3vm_remove_local() {
 	fi
 
 	log_info "Checking '${local_name}' out of c3vm..."
-	unlink "${path}"
+	unlink "$path"
 }
 
 function c3vm_remove() {
@@ -2227,25 +2225,25 @@ function use_from_directory() {
 	if [[ "$use_session" == "true" ]]; then
 		echo "export PATH=\"$(dirname "$executable_path"):\$PATH\""
 	else
-		local command=( "${executable_path}" "${use_compiler_args[@]}" )
+		local command=( "$executable_path" "${use_compiler_args[@]}" )
 		"${command[@]}"
 	fi
 }
 
 function use_prebuilt() {
 	determine_directory_prebuilt "use"
-	local found_version="${return_determine_directory}"
+	local found_version="$return_determine_directory"
 
 	if ! [[ -d "$found_version" ]]; then
 		echo "Could not find installed version '${version}'." >&2
 		exit "$EXIT_USE_VERSION_NOT_FOUND"
 	fi
 
-	use_from_directory "${found_version}"
+	use_from_directory "$found_version"
 }
 
 function use_from_source() {
-	local git_dir="${dir_compilers}/git/remote/${remote/\//_}"
+	local git_dir="${dir_from_source_remote}/${remote/\//_}"
 
 	if [[ ! -d "${git_dir}" ]]; then
 		echo "Could not find git-remote ${remote}." >&2
@@ -2258,9 +2256,9 @@ function use_from_source() {
 }
 
 function use_local() {
-	local local_path="${dir_compilers}/git/local/${local_name}"
+	local local_path="${dir_from_source_local}/${local_name}"
 
-	if [[ ! -d "${local_path}" ]]; then
+	if [[ ! -d "$local_path" ]]; then
 		echo "'${local_name}' is not recognized by c3vm" >&2
 		exit "$EXIT_ENABLE_NO_VERSION_FOUND"
 	fi
@@ -2277,7 +2275,7 @@ function use_local() {
 		exit "$EXIT_USE_VERSION_NOT_FOUND"
 	fi
 
-	use_from_directory "${local_path}"
+	use_from_directory "$local_path"
 }
 
 function c3vm_use() {
@@ -2291,15 +2289,15 @@ function c3vm_use() {
 }
 
 function c3vm_add_local() {
-	local local_dir="${dir_compilers}/git/local/${add_local_name}"
+	local local_dir="${dir_from_source_local}/${add_local_name}"
 
-	if [[ -e "${local_dir}" ]]; then
-		if [[ -d "${local_dir}" && -e "${local_dir}/CMakeLists.txt" ]]; then
+	if [[ -e "$local_dir" ]]; then
+		if [[ -d "$local_dir" && -e "${local_dir}/CMakeLists.txt" ]]; then
 			echo "'${add_local_name}' already exists." >&2
 			exit "$EXIT_ADDLOCAL_ALREADY_ADDED"
 		else
 			echo "'${add_local_name}' already exists but has no 'CMakeLists.txt'."
-			ls -l "${local_dir}"
+			ls -l "$local_dir"
 			echo -n "Remove '${local_dir}' and continue? [y/n] "
 			read -r answer
 			if [[ "$answer" != y ]]; then
@@ -2312,7 +2310,7 @@ function c3vm_add_local() {
 	fi
 
 	log_info "Checking '${add_local_path}' into c3vm in '${local_dir}'..."
-	ln -s "${add_local_path}" "${local_dir}"
+	ln -s "$add_local_path" "$local_dir"
 }
 
 case "$subcommand" in
