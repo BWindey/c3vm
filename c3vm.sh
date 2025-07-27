@@ -1400,8 +1400,6 @@ function enable_compiler_symlink() {
 	local output_dir="$1"
 	local symlink_location="$HOME/.local/bin/c3c"
 
-	echo "Linking (installed) executable to ${symlink_location}..."
-
 	# Check first if it's a symlink, so we can detect if it's broken if -e
 	# returns false
 	if [[ -h "${symlink_location}" ]]; then
@@ -1444,7 +1442,18 @@ function enable_compiler_symlink() {
 	# while the linux tar.gz is of the form 'c3/c3c'.
 	local exe_path
 	exe_path="$(find "${output_dir}" -type f -executable -name "c3c" -exec realpath '{}' \;)"
+	log_info "Linking '${exe_path}' executable to '${symlink_location}'..."
 	ln -s "${exe_path}" "$HOME/.local/bin/c3c"
+}
+
+# Little helper function to send output to /dev/null if $quiet is set
+function executies() {
+	if [[ "$quiet" == "true" ]]; then
+		"$@" >/dev/null
+	else
+		"$@"
+	fi
+	return "$?"
 }
 
 function download_known_release() {
@@ -1454,6 +1463,7 @@ function download_known_release() {
 	if [[ "$output_dir" == *"latest-prerelease_" ]]; then
 		local current_date
 		current_date="$(date +%Y%M%d_%H%S)" # Unique per second
+		log_verbose "Setting version to '${version}_${current_date}'"
 		output_dir="${output_dir}${current_date}"
 	fi
 
@@ -1490,25 +1500,35 @@ function download_known_release() {
 	local file_size
 	file_size=$(wc -c < "${output_file}") # '<' to only get count, no name
 	if [[ "$file_size" -lt 1000000 ]] ||  # < 1 MB (normal compiler is >40MB)
-		grep -qE "<html|Not Found" "${output_file}"
+		grep -E --quiet "<html|Not Found" "${output_file}"
 	then
 		echo "Download failed or invalid archive received." >&2
 		rm "${output_file}"
 		exit "$EXIT_INSTALL_DOWNLOAD_FAILED"
 	fi
 
-	echo "Extracting ${asset_name}..."
-	# TODO: handle verbose/quiet options
+	log_info "Extracting ${asset_name}..."
 	case "$extension" in
 		tar.gz)
-			tar --extract --directory="${output_dir}" --file="${output_dir}/${asset_name}"
+			local tar_flags=(
+				--extract
+				--directory="${output_dir}"
+				--file="${output_dir}/${asset_name}"
+			)
+			[[ "$verbose" == "true" ]] && tar_flags+=( --verbose )
+			executies tar "${tar_flags[@]}"
 			;;
 		zip)
-			unzip "${output_dir}/${asset_name}" -d "${output_dir}"
+			local unzip_flags=(
+				"${output_dir}/${asset_name}"
+				-d "${output_dir}"
+			)
+			[[ "$verbose" == "true" ]] && unzip_flags+=( -v )
+			executies unzip "${unzip_flags[@]}"
 	esac
 
 	if [[ "$keep_archive" != "true" ]]; then
-		echo "Removing archive..."
+		log_info "Removing archive..."
 		rm "${output_dir}/${asset_name}"
 	fi
 
