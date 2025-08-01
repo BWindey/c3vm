@@ -1293,7 +1293,10 @@ function c3vm_list() {
 
 function determine_download_release() {
 	mapfile -t available_versions < <(get_available_versions)
-	local latest_version="${available_versions[1]}"
+	local latest_version="${available_versions[0]}"
+	if [[ "$latest_version" == "prerelease"* ]]; then
+		latest_version="${available_versions[1]}"
+	fi
 
 	if [[ "$version" == "" ]]; then
 		# Get available versions and take second in list
