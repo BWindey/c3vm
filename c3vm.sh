@@ -1646,7 +1646,7 @@ function git_rev_is_commit() {
 	local rev="$1"
 	local git_dir="$2"
 	return_git_rev_is_commit="$(
-		git -C "$git_dir" rev-parse --quiet --verify "${rev}^{commit}" >/dev/null
+		git -C "$git_dir" rev-parse --quiet --verify "${rev}^{commit}" 2>/dev/null
 	)"
 	return "$?"
 }
@@ -1679,7 +1679,7 @@ function determine_git_build_dir() {
 		elif git_rev_is_commit "${from_rev}" "${git_dir}"; then
 			local commit_hash
 			commit_hash="${return_git_rev_is_commit}"
-			build_dir="${build_dir}/${commit_hash::7}"
+			build_dir="${build_dir}/${commit_hash::7}_"
 
 		else
 			echo "Git does not know '${from_rev}'." >&2
