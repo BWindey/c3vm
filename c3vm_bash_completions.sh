@@ -22,10 +22,13 @@ function try_complete_c3c() {
 	COMP_POINT="${#COMP_LINE}"
 
 	# Call c3c completion function
-	# Support both the old and new function (I wrote those too =D)
+	# Support both the old and new function name (I wrote those too =D)
 	# See https://github.com/BWindey/c3c-bash-completions
-	if declare -F _c3c_complete &>/dev/null || declare -F _c3c &>/dev/null; then
+	if declare -F _c3c_complete &>/dev/null; then
 		_c3c_complete
+		return 0
+	elif declare -F _c3c &>/dev/null; then
+		_c3c
 		return 0
 	fi
 }
