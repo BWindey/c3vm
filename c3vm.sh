@@ -263,7 +263,7 @@ dir_from_source="${dir_compilers}/from_source"
 dir_from_source_remote="${dir_compilers}/from_source/remote"
 dir_from_source_local="${dir_compilers}/from_source/local"
 
-dir_bin_link="$HOME/.local/bin/"
+dir_bin_link="$HOME/.local/bin"
 
 
 # All possible exit codes, has to match the help-string!
