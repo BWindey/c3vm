@@ -1466,9 +1466,14 @@ function download_known_release() {
 
 	if [[ "$output_dir" == *"latest-prerelease_" ]]; then
 		local current_date
-		current_date="$(date +%Y%M%d_%H%S)" # Unique per second
+		current_date="$(date +%Y%m%d_%H%S)" # Unique per second
 		log_verbose "Setting version to 'latest-prerelease_${current_date}'"
 		output_dir="${output_dir}${current_date}"
+	elif [[ "$output_dir" == *"latest-prerelease_-debug" ]]; then
+		local current_date
+		current_date="$(date +%Y%m%d_%H%S)" # Unique per second
+		log_verbose "Setting version to 'latest-prerelease_${current_date}-debug'"
+		output_dir="${output_dir%-debug}${current_date}-debug"
 	fi
 
 	# Determine the name of the file to download
