@@ -2094,7 +2094,7 @@ function c3vm_remove_prebuilt() {
 
 	local release
 
-	for release_dir in "${dir_prebuilt_releases}"* "${dir_prebuilt_prereleases}"*; do
+	for release_dir in "${dir_prebuilt_releases}/"* "${dir_prebuilt_prereleases}/"*; do
 		release="$(basename "$release_dir")"
 		if [[ "$release" == "*" ]]; then continue; fi # Empty dir
 
