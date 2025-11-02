@@ -29,6 +29,10 @@ Usage: c3vm [<command>] [<flags>] [<args>]
     - use [<version>] [-- <args...>]
                             Use the specified version for a single command
                             and pass the <args> to the compiler
+    - cd                    `cd` into the current active compiler
+                            WARNING: execute as `. c3vm cd`, otherwise the
+                            change in directory will not happen!
+                            TODO: just do the whole flags like `update`...
 
  Global flags:
     --verbose, -v           Log all info (default is just a little bit of info)
@@ -252,6 +256,19 @@ Usage: c3vm use [<version>] [-- <args...>]
     --checkout <rev>        Specify branch, tag or commit
     --local <name>          Use local directory
 USE_HELP
+}
+
+function print_cd_help() {
+	cat << 'CD_HELP'
+Usage: c3vm cd
+
+  The 'cd' subcommand will 'cd' into the directory of the current active
+  c3 compiler.
+  This is only possible when executed like this:
+    $ . c3vm cd
+  Consider setting an alias in your ~/.bashrc:
+    alias c3vmcd=". c3vm cd"
+CD_HELP
 }
 
 # Tweakable variables
@@ -524,6 +541,10 @@ while [[ "$1" ]]; do case $1 in
 	status)
 		check_subcommand_already_in_use "status"
 		subcommand="status"
+		;;
+	"cd")
+		check_subcommand_already_in_use "cd"
+		subcommand="cd"
 		;;
 	list)
 		check_subcommand_already_in_use "list"
@@ -2296,6 +2317,10 @@ function c3vm_use() {
 	fi
 }
 
+function c3vm_cd() {
+	cd "$(which c3c | xargs realpath | xargs dirname)" || exit 123
+}
+
 function c3vm_add_local() {
 	local local_dir="${dir_from_source_local}/${add_local_name}"
 
@@ -2342,6 +2367,9 @@ case "$subcommand" in
 		;;
 	use)
 		c3vm_use
+		;;
+	"cd")
+		c3vm_cd
 		;;
 	add-local)
 		c3vm_add_local
