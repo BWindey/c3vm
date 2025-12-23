@@ -67,7 +67,8 @@ function get_available_versions() {
 	else
 		mkdir -p "$cache_dir"
 		rm "${cache_dir}/*" 2>/dev/null 1>&2
-		c3vm list --available 2>/dev/null > "$cache_file"
+		# Don't wait for results as it is way too slow
+		(c3vm list --available 2>/dev/null > "$cache_file") &
 	fi
 }
 
