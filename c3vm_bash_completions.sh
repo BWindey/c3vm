@@ -93,14 +93,15 @@ function _c3vm_complete() {
 		(( processed_chars += "${#COMP_WORDS[${i}]}" ))
 
 		# Check if COMP_WORDS[i] is a subcommand, but only set it when it's not set yet
-		if [[ "${subcommands[*]}" =~ (^|.+ )${COMP_WORDS[$i]}($| .+) && "$subcommand" == "" ]]
-		then
+		if [[
+			"${subcommands[*]}" =~ (^|.+ )${COMP_WORDS[$i]}($| .+)
+			&& "$subcommand" == ""
+		]]; then
 			subcommand="${COMP_WORDS[$i]}"
 		elif [[
 			"${subcommand}" == "use"
 			&& "${COMP_WORDS[$i]}" == "--"
-			&& ! (( processed_chars > "${COMP_POINT}" ))
-		]]; then
+		]] && ! [[ "$processed_chars" -gt "${COMP_POINT}" ]]; then
 			# Hand completion over to `c3c`
 			(( i += 1 ))
 			try_complete_c3c "$i"
